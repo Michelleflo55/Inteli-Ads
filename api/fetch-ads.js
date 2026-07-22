@@ -17,109 +17,10 @@ export default async function handler(req, res) {
   if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
 
   try {
-    // Run Meta Ads Library fetch and Reddit searches in parallel
-    const keywordList = keywords ? keywords.split(',').map(k => k.trim()) : [brand];
-    const searchTerms = [brand, ...keywordList].slice(0, 3);
+    const keywordList = keywords ? keywords.split(',').map(k => k.trim()).filter(Boolean) : [];
 
-    const [metaRes, ...redditResults] = await Promise.allSettled([
-      // Meta Ads Library
-      fetch(`https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(brand)}&search_type=keyword_unordered&media_type=all`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'en-US,en;q=0.9',
-        }
-      }),
-      // Reddit searches for brand + keywords
-      ...searchTerms.map(term =>
-        fetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(term + ' review OR honest OR hate OR love OR uncomfortable OR fit')}&sort=relevance&limit=10&type=link`, {
-          headers: {
-            'User-Agent': 'InteliAds/1.0 (ad intelligence research tool)',
-            'Accept': 'application/json'
-          }
-        })
-      )
-    ]);
-
-    // Extract Meta content
-    let metaContent = '';
-    if (metaRes.status === 'fulfilled' && metaRes.value.ok) {
-      const html = await metaRes.value.text();
-      metaContent = html
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .slice(0, 3000);
-    }
-
-    // Extract Reddit content
-    let redditContent = '';
-    for (const result of redditResults) {
-      if (result.status === 'fulfilled' && result.value.ok) {
-        try {
-          const data = await result.value.json();
-          const posts = data?.data?.children || [];
-          const postTexts = posts.map(p => {
-            const d = p.data;
-            return `TITLE: ${d.title || ''} | SELFTEXT: ${(d.selftext || '').slice(0, 300)} | SUBREDDIT: r/${d.subreddit || ''}`;
-          }).join('\n');
-          redditContent += postTexts + '\n';
-        } catch {}
-      }
-    }
-
-    // Also fetch top Reddit comments for brand
-    let redditComments = '';
-    try {
-      const commentRes = await fetch(
-        `https://www.reddit.com/search.json?q=${encodeURIComponent(brand)}&sort=top&limit=5&type=comment`,
-        { headers: { 'User-Agent': 'InteliAds/1.0', 'Accept': 'application/json' } }
-      );
-      if (commentRes.ok) {
-        const commentData = await commentRes.json();
-        const comments = commentData?.data?.children || [];
-        redditComments = comments.map(c => c.data?.body || '').filter(Boolean).join('\n').slice(0, 2000);
-      }
-    } catch {}
-
-    // Build the full context for Claude
-    const fullContext = `
-META ADS LIBRARY DATA:
-${metaContent || 'Limited data available from Meta Ads Library.'}
-
-REDDIT POSTS AND DISCUSSIONS:
-${redditContent || 'No Reddit posts found.'}
-
-REDDIT COMMENTS FROM REAL USERS:
-${redditComments || 'No Reddit comments found.'}
-`.slice(0, 10000);
-
-    const systemPrompt = `You are an ad intelligence analyst specializing in DTC consumer brands. You analyze real consumer language from Reddit, social media, and ad data to extract authentic creative intelligence.
-
-Your job is to find the RAW, UNFILTERED language real people use when talking about this product category. Not marketing language. The exact words real customers type when they're frustrated, happy, or honest.
-
-Return ONLY a valid JSON object with this exact structure, no other text:
-{
-  "topHeadlines": ["5 specific ad headlines or hooks you detected or would predict based on data"],
-  "painPoints": ["5 specific pain points in real customer language, e.g. 'rolls down by noon', 'wire digs in after 2 hours', not generic phrases"],
-  "valueProps": ["5 specific value props with mechanism, e.g. 'no underwire but holds size 36DDD', not just 'comfortable'"],
-  "topTopics": ["5 content topics that are resonating, e.g. 'postpartum body changes', 'wedding shapewear panic', 'first time trying shapewear'"],
-  "topKeywords": ["10 exact words and phrases real people use in Reddit posts and reviews, not marketing terms"],
-  "hookPatterns": ["3 specific hook structures working right now with example wording"],
-  "redditInsights": ["3-5 direct quotes or paraphrases of real things people said on Reddit about this brand or category"],
-  "scriptRecommendation": "2-3 sentences on the highest opportunity script angle based on what real people are saying vs what ads are currently doing. Be specific about the gap."
-}`;
-
-    const userMessage = `Brand: ${brand}
-Keywords/products to focus on: ${keywords || 'all products'}
-
-Here is all the data gathered:
-${fullContext}
-
-Extract the real consumer language and intelligence. Focus especially on Reddit data since that's where people are most honest. Return the JSON object.`;
-
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    // STEP 1: Ask Claude who the top competitors are
+    const competitorRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -128,24 +29,154 @@ Extract the real consumer language and intelligence. Focus especially on Reddit 
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }]
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: `What are the top 4 direct competitors to the brand "${brand}" in the ${keywords || 'DTC apparel/intimates'} space? Return only a JSON array of brand names, nothing else. Example: ["Brand A", "Brand B", "Brand C", "Brand D"]. Only return brands that actually exist and compete directly.`
+        }]
       })
     });
 
-    const claudeData = await claudeRes.json();
-    const claudeText = claudeData.content?.map(b => b.text || '').join('') || '{}';
+    const compData = await competitorRes.json();
+    const compText = compData.content?.map(b => b.text || '').join('') || '[]';
+    
+    let competitorList = [];
+    try {
+      const clean = compText.replace(/```json|```/g, '').trim();
+      competitorList = JSON.parse(clean);
+    } catch { competitorList = []; }
+
+    // STEP 2: Run all data fetches in parallel
+    const fetchPromises = [
+      // Main brand Meta Ads Library
+      fetch(`https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(brand)}&search_type=keyword_unordered&media_type=all`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36', 'Accept': 'text/html' }
+      }),
+      // Main brand Reddit
+      fetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(brand + ' review OR experience OR honest OR hate OR love')}&sort=relevance&limit=10&type=link`, {
+        headers: { 'User-Agent': 'InteliAds/1.0', 'Accept': 'application/json' }
+      }),
+      // Main brand Reddit comments
+      fetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(brand)}&sort=top&limit=8&type=comment`, {
+        headers: { 'User-Agent': 'InteliAds/1.0', 'Accept': 'application/json' }
+      }),
+      // Category Reddit
+      fetch(`https://www.reddit.com/search.json?q=${encodeURIComponent((keywordList[0] || brand) + ' review complaint honest')}&sort=relevance&limit=8&type=link`, {
+        headers: { 'User-Agent': 'InteliAds/1.0', 'Accept': 'application/json' }
+      }),
+      // Each competitor: Meta + Reddit
+      ...competitorList.slice(0, 4).flatMap(comp => [
+        fetch(`https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(comp)}&search_type=keyword_unordered&media_type=all`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36', 'Accept': 'text/html' }
+        }),
+        fetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(comp + ' review OR complaint OR honest OR bad OR love')}&sort=relevance&limit=6&type=link`, {
+          headers: { 'User-Agent': 'InteliAds/1.0', 'Accept': 'application/json' }
+        })
+      ])
+    ];
+
+    const results = await Promise.allSettled(fetchPromises);
+
+    const extractText = (html) => html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 1500);
+
+    const extractReddit = async (result) => {
+      if (result?.status !== 'fulfilled' || !result.value.ok) return '';
+      try {
+        const data = await result.value.json();
+        return (data?.data?.children || [])
+          .map(p => `"${p.data.title || ''}" ${(p.data.selftext || '').slice(0, 200)}`)
+          .join('\n');
+      } catch { return ''; }
+    };
+
+    // Main brand data
+    let mainMetaText = '';
+    if (results[0]?.status === 'fulfilled' && results[0].value.ok) {
+      mainMetaText = extractText(await results[0].value.text());
+    }
+    const mainRedditPosts = await extractReddit(results[1]);
+    const mainRedditComments = await extractReddit(results[2]);
+    const categoryReddit = await extractReddit(results[3]);
+
+    // Competitor data
+    let competitorData = '';
+    for (let i = 0; i < competitorList.slice(0, 4).length; i++) {
+      const comp = competitorList[i];
+      const baseIdx = 4 + (i * 2);
+      let compMeta = '';
+      if (results[baseIdx]?.status === 'fulfilled' && results[baseIdx].value.ok) {
+        compMeta = extractText(await results[baseIdx].value.text());
+      }
+      const compReddit = await extractReddit(results[baseIdx + 1]);
+      competitorData += `\n=== ${comp} ===\nMETA ADS: ${compMeta || 'No data'}\nREDDIT: ${compReddit || 'No data'}\n`;
+    }
+
+    const fullContext = `
+BRAND: ${brand}
+AUTO-DETECTED COMPETITORS: ${competitorList.join(', ')}
+PRODUCT FOCUS: ${keywords || 'all products'}
+
+BRAND META ADS: ${mainMetaText || 'Limited'}
+BRAND REDDIT POSTS: ${mainRedditPosts.slice(0, 1500)}
+BRAND REDDIT COMMENTS: ${mainRedditComments.slice(0, 800)}
+CATEGORY DISCUSSIONS: ${categoryReddit.slice(0, 800)}
+COMPETITOR DATA: ${competitorData.slice(0, 3500)}
+`.slice(0, 12000);
+
+    const systemPrompt = `You are a senior DTC ad strategist. You analyze Meta Ads Library data, Reddit consumer discussions, and competitor activity to find creative gaps and opportunities.
+
+Use REAL consumer language from Reddit. Pull exact phrases where possible. Never use marketing language.
+
+Return ONLY valid JSON, no other text:
+{
+  "detectedCompetitors": ["list the competitors you analyzed"],
+  "topHeadlines": ["5 hooks/headlines working or predicted to work for the brand"],
+  "painPoints": ["5 pain points in exact consumer language from Reddit. E.g. 'rolls down the second I sit', 'wire digs in marks by lunch'"],
+  "valueProps": ["5 value props with specific mechanism. E.g. 'no underwire but holds 36DDD through 10hr shift'"],
+  "topTopics": ["5 content topics resonating in this category right now"],
+  "topKeywords": ["12 exact words real consumers use. No marketing terms."],
+  "hookPatterns": ["3 proven hook structures with full example lines written for this brand"],
+  "redditInsights": ["6 direct quotes or very close paraphrases from Reddit. Sound like real people."],
+  "competitorAngles": ["5 angles competitors are actively running. Format: '[Competitor]: [specific angle and hook message]'"],
+  "competitorComplaints": ["5 specific complaints real people have about competitors that this brand could address. Format: 'People hate that [Competitor] [complaint]. Win here by [specific angle].'"],
+  "competitorKeywords": ["10 keywords competitors appear to be targeting"],
+  "competitorGaps": ["5 specific untapped angles this brand could own that competitors are missing"],
+  "scriptRecommendation": "The single highest-leverage script angle right now. Reference competitor gaps, Reddit language, and the specific opportunity. 3 sentences max. Direct and specific."
+}`;
+
+    const analysisRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2500,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Analyze this and return the JSON:\n\n${fullContext}` }]
+      })
+    });
+
+    const analysisData = await analysisRes.json();
+    const analysisText = analysisData.content?.map(b => b.text || '').join('') || '{}';
 
     let intelligence;
     try {
-      const clean = claudeText.replace(/```json|```/g, '').trim();
+      const clean = analysisText.replace(/```json|```/g, '').trim();
       intelligence = JSON.parse(clean);
     } catch {
-      intelligence = { error: 'Parse failed', raw: claudeText.slice(0, 300) };
+      intelligence = { error: 'Parse failed', raw: analysisText.slice(0, 300) };
     }
 
-    return res.status(200).json({ success: true, brand, intelligence });
+    return res.status(200).json({ success: true, brand, detectedCompetitors: competitorList, intelligence });
 
   } catch (err) {
     return res.status(500).json({ error: String(err.message || err) });
