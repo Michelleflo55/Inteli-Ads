@@ -453,6 +453,13 @@
     <input id="brandInput" type="text" placeholder="Brand name, e.g. HoneyLove" autocomplete="off" />
     <button id="generateBtn" onclick="buildDashboard()">Build dashboard</button>
   </div>
+  <div style="max-width:480px;width:100%;margin-top:0.75rem;">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.6rem 1rem;">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text-3);white-space:nowrap;letter-spacing:0.04em;">KEYWORDS</span>
+      <input id="keywordInput" type="text" placeholder="crossbra, shapewear, shorts... (optional)" autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font);color:var(--text);" />
+    </div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:6px;font-family:var(--mono);">Focus the analysis on specific products or angles.</div>
+  </div>
 
   <div class="hint-row">
     <span>No login required</span>
@@ -596,18 +603,91 @@
     if (e.key === 'Enter') buildDashboard();
   });
 
-  function buildDashboard() {
+  async function buildDashboard() {
     const brand = document.getElementById('brandInput').value.trim();
     if (!brand) return;
     currentBrand = brand;
-    const enc = encodeURIComponent(brand);
+    const keywords = document.getElementById('keywordInput') ? document.getElementById('keywordInput').value.trim() : '';
 
     document.getElementById('topbarBrand').textContent = brand;
-
-
-
     document.getElementById('landing').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+
+    showTab('analysis', document.querySelector('[onclick*="analysis"]'));
+    document.getElementById('painOut').innerHTML = '<div class="loading"><div class="spinner"></div>Fetching ' + brand + ' ads intelligence...</div>';
+    document.getElementById('valueOut').innerHTML = '';
+    document.getElementById('topicOut').innerHTML = '';
+    document.getElementById('hookOut').innerHTML = '';
+    document.getElementById('freqOut').innerHTML = '';
+    document.getElementById('cntAds').textContent = '...';
+    document.getElementById('cntPain').textContent = '...';
+    document.getElementById('cntValue').textContent = '...';
+    document.getElementById('cntTopic').textContent = '...';
+
+    try {
+      const res = await fetch('/api/fetch-ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand, keywords })
+      });
+
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch {
+        document.getElementById('painOut').innerHTML = '<span class="empty">Parse error. Try again.</span>';
+        return;
+      }
+
+      if (!data.success || !data.intelligence) {
+        document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${data.error || 'Unknown'}</span>`;
+        return;
+      }
+
+      const intel = data.intelligence;
+
+      document.getElementById('cntAds').textContent = '✓';
+      document.getElementById('cntPain').textContent = (intel.painPoints || []).length;
+      document.getElementById('cntValue').textContent = (intel.valueProps || []).length;
+      document.getElementById('cntTopic').textContent = (intel.topTopics || []).length;
+
+      document.getElementById('painOut').innerHTML = (intel.painPoints || []).length
+        ? intel.painPoints.map(p => `<span class="tag pain">${p}</span>`).join('')
+        : '<span class="empty">None detected.</span>';
+
+      document.getElementById('valueOut').innerHTML = (intel.valueProps || []).length
+        ? intel.valueProps.map(v => `<span class="tag value">${v}</span>`).join('')
+        : '<span class="empty">None detected.</span>';
+
+      document.getElementById('topicOut').innerHTML = (intel.topTopics || []).length
+        ? intel.topTopics.map(t => `<span class="tag topic">${t}</span>`).join('')
+        : '<span class="empty">None detected.</span>';
+
+      document.getElementById('freqOut').innerHTML = (intel.topKeywords || []).length
+        ? intel.topKeywords.map(k => `<span class="tag topic">${k}</span>`).join('')
+        : '<span class="empty">None detected.</span>';
+
+      document.getElementById('hookOut').innerHTML = (intel.hookPatterns || []).length
+        ? intel.hookPatterns.map((h, i) => `<div class="hook-block"><div class="hook-num">HOOK ${String(i+1).padStart(2,'0')}</div><div class="hook-text">"${h}"</div></div>`).join('')
+        : '<span class="empty">None detected.</span>';
+
+      if (intel.topHeadlines && intel.topHeadlines.length) {
+        document.getElementById('hookOut').innerHTML +=
+          '<div style="margin-top:1rem;"><div class="card-label" style="margin-bottom:0.5rem;color:var(--amber);">TOP HEADLINES</div>' +
+          intel.topHeadlines.map(h => `<div class="hook-block"><div class="hook-text">${h}</div></div>`).join('') + '</div>';
+      }
+
+      if (intel.scriptRecommendation) {
+        document.getElementById('freqOut').innerHTML +=
+          '<div style="margin-top:1rem;width:100%;padding:0.75rem 1rem;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--radius);font-size:13px;color:var(--text-2);line-height:1.6;">' +
+          '<span style="font-family:var(--mono);font-size:10px;color:var(--amber);display:block;margin-bottom:4px;">SCRIPT RECOMMENDATION</span>' +
+          intel.scriptRecommendation + '</div>';
+      }
+
+      document.getElementById('genPrompt').value = `Brand: ${brand}. Pain points: ${(intel.painPoints||[]).join(', ')}. Value props: ${(intel.valueProps||[]).join(', ')}. Top topics: ${(intel.topTopics||[]).join(', ')}. Write the highest converting UGC script for this brand. Max 150 words. No em dashes. Raw, native, direct.`;
+
+    } catch (err) {
+      document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${err.message}</span>`;
+    }
   }
 
   function resetApp() {
