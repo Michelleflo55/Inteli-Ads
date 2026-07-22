@@ -601,25 +601,10 @@
     if (!brand) return;
     currentBrand = brand;
     const enc = encodeURIComponent(brand);
-    const encLower = encodeURIComponent(brand.toLowerCase());
 
     document.getElementById('topbarBrand').textContent = brand;
 
-    const links = [
-      { label: brand + '. All active ads. US.', url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${enc}&search_type=keyword_unordered&media_type=all`, meta: 'All formats' },
-      { label: brand + '. Video ads. Active only.', url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${enc}&search_type=keyword_unordered&media_type=video`, meta: 'Video only' },
-      { label: brand + '. Image ads. Active only.', url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${enc}&search_type=keyword_unordered&media_type=image`, meta: 'Image only' },
-      { label: brand + '. All ads including inactive.', url: `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=US&q=${enc}&search_type=keyword_unordered&media_type=all`, meta: 'History' },
-      { label: brand + '. Instagram only. Active.', url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${enc}&search_type=keyword_unordered&publisher_platforms[0]=instagram`, meta: 'Instagram' },
-    ];
 
-    document.getElementById('libLinks').innerHTML = links.map(l => `
-      <a class="lib-link" href="${l.url}" target="_blank" rel="noopener">
-        <div class="lib-icon">↗</div>
-        <span>${l.label}</span>
-        <span class="lib-meta">${l.meta}</span>
-      </a>
-    `).join('');
 
     document.getElementById('landing').style.display = 'none';
     document.getElementById('app').style.display = 'block';
