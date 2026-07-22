@@ -513,7 +513,7 @@
     <!-- TAB: Analysis -->
     <div id="tab-analysis" class="tab-panel">
       <div class="metrics">
-        <div class="metric"><div class="metric-n" id="cntAds">0</div><div class="metric-l">Ads analyzed</div></div>
+        <div class="metric"><div class="metric-n" id="cntAds">0</div><div class="metric-l">Status</div></div>
         <div class="metric"><div class="metric-n" id="cntPain">0</div><div class="metric-l">Pain points</div></div>
         <div class="metric"><div class="metric-n" id="cntValue">0</div><div class="metric-l">Value props</div></div>
         <div class="metric"><div class="metric-n" id="cntTopic">0</div><div class="metric-l">Topics</div></div>
@@ -537,7 +537,11 @@
       </div>
       <div class="card">
         <div class="card-label">Top keywords by frequency</div>
-        <div id="freqOut" class="tag-row"><span class="empty">Paste ads to see top keywords.</span></div>
+        <div id="freqOut" class="tag-row"><span class="empty">Build dashboard to see keywords.</span></div>
+      </div>
+      <div class="card" style="border-color:var(--red-border);">
+        <div class="card-label" style="color:var(--red-text);">Reddit insights. Real people. Unfiltered.</div>
+        <div id="redditOut"><span class="empty">Build dashboard to see Reddit data.</span></div>
       </div>
       <hr class="divider">
       <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts from this analysis</button>
@@ -683,6 +687,14 @@
           intel.scriptRecommendation + '</div>';
       }
 
+      // Reddit insights
+      if (intel.redditInsights && intel.redditInsights.length) {
+        document.getElementById('redditOut').innerHTML =
+          intel.redditInsights.map(r => `<div class="hook-block" style="border-color:var(--red-text);background:var(--red-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">"${r}"</div></div>`).join('');
+      } else {
+        document.getElementById('redditOut').innerHTML = '<span class="empty">No Reddit data found for this brand.</span>';
+      }
+
       document.getElementById('genPrompt').value = `Brand: ${brand}. Pain points: ${(intel.painPoints||[]).join(', ')}. Value props: ${(intel.valueProps||[]).join(', ')}. Top topics: ${(intel.topTopics||[]).join(', ')}. Write the highest converting UGC script for this brand. Max 150 words. No em dashes. Raw, native, direct.`;
 
     } catch (err) {
@@ -791,7 +803,28 @@
       ? `\n\nAnalysis data from ad library:\nPain points detected: ${[...painFound].join(', ')}\nValue props detected: ${[...valueFound].join(', ')}\nTopics working: ${[...topicFound].join(', ')}`
       : '';
 
-    const systemPrompt = `You are the Motion Creative Strategy Engine. You write short-form video scripts for DTC brands. Rules: Never use em dashes. No corporate language. No AI slop phrases like "Are you tired of" or "Introducing" or "Revolutionary". Max 150 words per script. Open with contrast or a specific hook, never a greeting. Use specific numbers over adjectives. Close with a direct CTA. Speak warmly, with empathy, as an equal. Assume the audience is smart. Never fabricate product claims. Keep language fragmented, raw, native to social feeds. Performance over creativity. Brand: ${currentBrand}.${analysisContext}`;
+    const systemPrompt = `You are a short-form video script writer for DTC brands. You write scripts that sound like real women talking, not ads.
+
+VOICE: Sound like a real woman talking to her friend. Fragmented sentences. Casual. Direct. Never a spokesperson.
+
+NEVER USE: em dashes, "game changer", "Are you tired of", "Introducing", "Revolutionary", "seamlessly", "unlock", "transform", "elevate", "journey", "confidence", "feel your best", or any word from a marketing deck.
+
+SCRIPT RULES:
+- Max 150 words
+- Open mid-thought or mid-situation. Never a greeting. Never "So I wanted to share"
+- Hook must name a specific situation, body type, or failure the viewer has personally lived
+- Use the EXACT pain points and value props from the analysis. Do not swap them for generic versions.
+- Specific details beat adjectives every time. "Didn't move after 8 hours" beats "stays all day". "No wire digging in by 2pm" beats "comfortable"
+- Close with a direct CTA or a binary. Cut everything after the ask.
+- Write so a real woman reads it once and delivers it naturally on camera with zero coaching
+
+WHAT KILLS A SCRIPT:
+- Vague transformation language
+- Claims not tied to a specific product mechanism
+- Anything that sounds written by a marketing team
+- Scripts that could apply to any brand in the category
+
+Brand: ${currentBrand}.${analysisContext}`;
 
     const outputDiv = document.getElementById('genOutput');
     outputDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Writing script...</div>';
