@@ -618,15 +618,19 @@
     document.getElementById('app').style.display = 'block';
 
     showTab('analysis', document.querySelector('[onclick*="analysis"]'));
-    document.getElementById('painOut').innerHTML = '<div class="loading"><div class="spinner"></div>Fetching ' + brand + ' ads intelligence...</div>';
-    document.getElementById('valueOut').innerHTML = '';
-    document.getElementById('topicOut').innerHTML = '';
-    document.getElementById('hookOut').innerHTML = '';
-    document.getElementById('freqOut').innerHTML = '';
-    document.getElementById('cntAds').textContent = '...';
-    document.getElementById('cntPain').textContent = '...';
-    document.getElementById('cntValue').textContent = '...';
-    document.getElementById('cntTopic').textContent = '...';
+
+    // Clear all panels before fetch
+    const loadingMsg = '<div class="loading"><div class="spinner"></div>Fetching ' + brand + ' ads + Reddit intelligence...</div>';
+    ['valueOut','topicOut','hookOut','freqOut'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
+    const redditEl = document.getElementById('redditOut');
+    if (redditEl) redditEl.innerHTML = '';
+    document.getElementById('painOut').innerHTML = loadingMsg;
+    ['cntAds','cntPain','cntValue','cntTopic'].forEach(id => {
+      document.getElementById(id).textContent = '...';
+    });
 
     try {
       const res = await fetch('/api/fetch-ads', {
@@ -715,11 +719,31 @@ TASK: Write 4 script variations, one per awareness angle (Angle 1 through 4). Ea
   function resetApp() {
     currentBrand = '';
     painFound.clear(); valueFound.clear(); topicFound.clear();
-    hooksFound = []; adsCount = 0;
-    document.getElementById('adInput').value = '';
-    document.getElementById('genOutput').innerHTML = '';
+    hooksFound = []; adsCount = 0; allAdText = [];
+
+    // Clear all analysis panels
+    const empty = '<span class="empty">Build dashboard to start mapping.</span>';
+    ['painOut','valueOut','topicOut','hookOut','freqOut','redditOut'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = empty;
+    });
+    ['cntAds','cntPain','cntValue','cntTopic'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '0';
+    });
+
+    // Clear inputs and outputs
+    const adInput = document.getElementById('adInput');
+    if (adInput) adInput.value = '';
+    const genOutput = document.getElementById('genOutput');
+    if (genOutput) genOutput.innerHTML = '';
+    const genPrompt = document.getElementById('genPrompt');
+    if (genPrompt) genPrompt.value = '';
+    const keywordInput = document.getElementById('keywordInput');
+    if (keywordInput) keywordInput.value = '';
+
     clearTemplate();
-    renderAnalysis();
+
     document.getElementById('brandInput').value = '';
     document.getElementById('livePreview').textContent = 'any brand';
     document.getElementById('landing').style.display = 'flex';
