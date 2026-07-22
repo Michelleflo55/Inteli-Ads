@@ -793,7 +793,7 @@ TASK: Write 4 script variations, one per awareness angle (Angle 1 through 4). Ea
   }
 
   function clearTemplate() {
-    ['t1','t2','t3','t4','t5'].forEach(id => document.getElementById(id).value = '');
+    ['t1','t2','t3','t4','t5'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   }
 
   function buildFromTemplate() {
