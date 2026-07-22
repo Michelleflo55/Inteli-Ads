@@ -768,20 +768,28 @@
         })
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">Parse error. Raw response: ${rawText.slice(0, 400)}</div>`;
+        return;
+      }
+
       if (data.error) {
-        const errMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
-        outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">API Error: ${errMsg}<br><br>Preview: ${data.preview || data.raw || ''}</div>`;
+        const errMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error, null, 2);
+        outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">${errMsg}</div>`;
         return;
       }
       if (!data.content) {
-        outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">Unexpected response: ${JSON.stringify(data)}</div>`;
+        outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">Unexpected: ${JSON.stringify(data, null, 2)}</div>`;
         return;
       }
       const text = data.content.map(b => b.text || '').join('') || 'No output returned.';
       outputDiv.innerHTML = `<div class="ai-output">${text}</div>`;
     } catch (err) {
-      outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">Error: ${err.message}</div>`;
+      outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">Fetch error: ${err.message}</div>`;
     }
   }
 
