@@ -445,30 +445,40 @@
 <body>
 
 <!-- Landing -->
+
 <div id="landing">
   <div class="eyebrow">Inteli-Ads</div>
   <h1>Ad intelligence<br>for <span id="livePreview">any brand</span></h1>
-  <p class="sub">Type a brand name. Get the full ad library dashboard, value point mapper, and script template in real time.</p>
-  <div class="brand-input-wrap">
-    <input id="brandInput" type="text" placeholder="Brand name, e.g. HoneyLove" autocomplete="off" />
-    <button id="generateBtn" onclick="buildDashboard()">Build dashboard</button>
-  </div>
-  <div style="max-width:480px;width:100%;margin-top:0.75rem;">
+  <p class="sub">Type a brand, add competitors, set your focus. Get pain points, value props, Reddit insights, competitor gaps, and 4 ready-to-shoot scripts.</p>
+
+  <div style="max-width:480px;width:100%;display:flex;flex-direction:column;gap:0.65rem;">
+
+    <div class="brand-input-wrap">
+      <input id="brandInput" type="text" placeholder="Brand name, e.g. HoneyLove" autocomplete="off" />
+      <button id="generateBtn" onclick="buildDashboard()">Build dashboard</button>
+    </div>
+
+
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.6rem 1rem;">
       <span style="font-family:var(--mono);font-size:11px;color:var(--text-3);white-space:nowrap;letter-spacing:0.04em;">KEYWORDS</span>
-      <input id="keywordInput" type="text" placeholder="crossbra, shapewear, shorts... (optional)" autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font);color:var(--text);" />
+      <input id="keywordInput" type="text" placeholder="crossbra, shapewear, shorts..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font);color:var(--text);" />
     </div>
-    <div style="font-size:11px;color:var(--text-3);margin-top:6px;font-family:var(--mono);">Focus the analysis on specific products or angles.</div>
+
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid rgba(255,255,255,0.04);border-radius:10px;padding:0.6rem 1rem;opacity:0.4;" title="Meta Ads Manager connection coming soon">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text-3);white-space:nowrap;letter-spacing:0.04em;">AD ACCOUNT</span>
+      <input type="text" placeholder="Meta Ad Account ID (coming soon)" disabled style="flex:1;background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font);color:var(--text-3);cursor:not-allowed;" />
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text-3);white-space:nowrap;">SOON</span>
+    </div>
+
   </div>
 
-  <div class="hint-row">
-    <span>No login required</span>
+  <div class="hint-row" style="margin-top:1.25rem;">
     <span>No data stored</span>
-    <span>Live every session</span>
+    <span>Auto-detects competitors</span>
+    <span>4 scripts per brand</span>
   </div>
 </div>
 
-<!-- App shell -->
 <div id="app">
   <div class="topbar">
     <div class="brand-badge">
@@ -519,6 +529,11 @@
         <div class="metric"><div class="metric-n" id="cntTopic">0</div><div class="metric-l">Topics</div></div>
       </div>
 
+      <div class="card" id="detectedCompCard" style="display:none;border-color:var(--amber-border);">
+        <div class="card-label" style="color:var(--amber);">Auto-detected competitors</div>
+        <div id="detectedCompOut" class="tag-row"></div>
+      </div>
+
       <div class="card">
         <div class="card-label">Pain points detected</div>
         <div id="painOut" class="tag-row"><span class="empty">Paste ads to start mapping.</span></div>
@@ -542,6 +557,22 @@
       <div class="card" style="border-color:var(--red-border);">
         <div class="card-label" style="color:var(--red-text);">Reddit insights. Real people. Unfiltered.</div>
         <div id="redditOut"><span class="empty">Build dashboard to see Reddit data.</span></div>
+      </div>
+      <div class="card" style="border-color:var(--purple-border);">
+        <div class="card-label" style="color:var(--purple-text);">Angles competitors are running</div>
+        <div id="compAnglesOut"><span class="empty">Add competitors on the home screen.</span></div>
+      </div>
+      <div class="card" style="border-color:var(--red-border);">
+        <div class="card-label" style="color:var(--red-text);">Competitor complaints. Steal these wins.</div>
+        <div id="compComplaintsOut"><span class="empty">Add competitors on the home screen.</span></div>
+      </div>
+      <div class="card" style="border-color:var(--amber-border);">
+        <div class="card-label" style="color:var(--amber);">Keywords competitors are targeting</div>
+        <div id="compKeywordsOut" class="tag-row"><span class="empty">Add competitors on the home screen.</span></div>
+      </div>
+      <div class="card" style="border-color:var(--green-border);">
+        <div class="card-label" style="color:var(--green-text);">Gaps competitors are missing. Own these.</div>
+        <div id="compGapsOut"><span class="empty">Add competitors on the home screen.</span></div>
       </div>
       <hr class="divider">
       <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts from this analysis</button>
@@ -612,6 +643,7 @@
     if (!brand) return;
     currentBrand = brand;
     const keywords = document.getElementById('keywordInput') ? document.getElementById('keywordInput').value.trim() : '';
+    const competitors = document.getElementById('competitorInput') ? document.getElementById('competitorInput').value.trim() : '';
 
     document.getElementById('topbarBrand').textContent = brand;
     document.getElementById('landing').style.display = 'none';
@@ -636,7 +668,7 @@
       const res = await fetch('/api/fetch-ads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brand, keywords })
+        body: JSON.stringify({ brand, keywords, competitors })
       });
 
       const rawText = await res.text();
@@ -654,6 +686,14 @@
       const intel = data.intelligence;
 
       document.getElementById('cntAds').textContent = '✓';
+
+      // Show auto-detected competitors
+      const detectedComps = data.detectedCompetitors || intel.detectedCompetitors || [];
+      if (detectedComps.length) {
+        document.getElementById('detectedCompCard').style.display = 'block';
+        document.getElementById('detectedCompOut').innerHTML =
+          detectedComps.map(c => `<span class="tag" style="background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);">${c}</span>`).join('');
+      }
       document.getElementById('cntPain').textContent = (intel.painPoints || []).length;
       document.getElementById('cntValue').textContent = (intel.valueProps || []).length;
       document.getElementById('cntTopic').textContent = (intel.topTopics || []).length;
@@ -699,6 +739,30 @@
         document.getElementById('redditOut').innerHTML = '<span class="empty">No Reddit data found for this brand.</span>';
       }
 
+      // Competitor angles
+      if (intel.competitorAngles && intel.competitorAngles.length) {
+        document.getElementById('compAnglesOut').innerHTML =
+          intel.competitorAngles.map(a => `<div class="hook-block" style="border-color:var(--purple-text);background:var(--purple-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${a}</div></div>`).join('');
+      }
+
+      // Competitor complaints
+      if (intel.competitorComplaints && intel.competitorComplaints.length) {
+        document.getElementById('compComplaintsOut').innerHTML =
+          intel.competitorComplaints.map(c => `<div class="hook-block" style="border-color:var(--red-text);background:var(--red-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${c}</div></div>`).join('');
+      }
+
+      // Competitor keywords
+      if (intel.competitorKeywords && intel.competitorKeywords.length) {
+        document.getElementById('compKeywordsOut').innerHTML =
+          intel.competitorKeywords.map(k => `<span class="tag" style="background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);">${k}</span>`).join('');
+      }
+
+      // Competitor gaps
+      if (intel.competitorGaps && intel.competitorGaps.length) {
+        document.getElementById('compGapsOut').innerHTML =
+          intel.competitorGaps.map(g => `<div class="hook-block" style="border-color:var(--green-text);background:var(--green-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${g}</div></div>`).join('');
+      }
+
       document.getElementById('genPrompt').value = `Brand: ${brand}.
 Keywords/products: ${keywords || 'all products'}.
 
@@ -707,9 +771,14 @@ Pain points (use these exactly): ${(intel.painPoints||[]).join(', ')}.
 Value props (use these exactly): ${(intel.valueProps||[]).join(', ')}.
 Top topics: ${(intel.topTopics||[]).join(', ')}.
 Top keywords: ${(intel.topKeywords||[]).join(', ')}.
-Reddit insights (real customer language to pull from): ${(intel.redditInsights||[]).join(' | ')}.
+Reddit insights (real customer language): ${(intel.redditInsights||[]).join(' | ')}.
 
-TASK: Write 4 script variations, one per awareness angle (Angle 1 through 4). Each script max 150 words. Use the exact pain points and value props from the analysis above. Pull language from the Reddit insights. Follow all script rules. Include hook, full script, CTA, and why it works for each angle.`;
+COMPETITOR INTELLIGENCE:
+Angles competitors are running: ${(intel.competitorAngles||[]).join(' | ')}.
+Complaints about competitors we can win on: ${(intel.competitorComplaints||[]).join(' | ')}.
+Gaps competitors are missing: ${(intel.competitorGaps||[]).join(' | ')}.
+
+TASK: Write 4 script variations, one per awareness angle (Angle 1 through 4). Each script max 150 words. Use the exact pain points and value props. Pull real language from Reddit insights. Reference competitor gaps where relevant to position this brand as the better choice. Include hook, full script, CTA, and why it works for each angle.`;
 
     } catch (err) {
       document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${err.message}</span>`;
@@ -723,7 +792,7 @@ TASK: Write 4 script variations, one per awareness angle (Angle 1 through 4). Ea
 
     // Clear all analysis panels
     const empty = '<span class="empty">Build dashboard to start mapping.</span>';
-    ['painOut','valueOut','topicOut','hookOut','freqOut','redditOut'].forEach(id => {
+    ['painOut','valueOut','topicOut','hookOut','freqOut','redditOut','compAnglesOut','compComplaintsOut','compKeywordsOut','compGapsOut'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = empty;
     });
@@ -741,6 +810,7 @@ TASK: Write 4 script variations, one per awareness angle (Angle 1 through 4). Ea
     if (genPrompt) genPrompt.value = '';
     const keywordInput = document.getElementById('keywordInput');
     if (keywordInput) keywordInput.value = '';
+    const dc = document.getElementById('detectedCompCard'); if (dc) dc.style.display = 'none';
 
     clearTemplate();
 
@@ -923,12 +993,10 @@ Brand: ${currentBrand}.${analysisContext}`;
   function goToScriptBuilder() {
     const tab = document.querySelector('.tab:last-child');
     showTab('generate', tab);
-    if (!document.getElementById('genPrompt').value) {
-      generateScript();
-    } else {
-      generateScript();
-    }
+    generateScript();
   }
+
+
 </script>
 </body>
 </html>
