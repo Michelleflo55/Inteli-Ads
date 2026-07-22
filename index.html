@@ -453,6 +453,7 @@
     <input id="brandInput" type="text" placeholder="Brand name, e.g. HoneyLove" autocomplete="off" />
     <button id="generateBtn" onclick="buildDashboard()">Build dashboard</button>
   </div>
+
   <div class="hint-row">
     <span>No login required</span>
     <span>No data stored</span>
@@ -756,7 +757,7 @@
     outputDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Writing script...</div>';
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -768,12 +769,17 @@
       });
 
       const data = await res.json();
+      if (data.error) {
+        outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">Error: ${data.error}</div>`;
+        return;
+      }
       const text = data.content?.map(b => b.text || '').join('') || 'No output returned.';
       outputDiv.innerHTML = `<div class="ai-output">${text}</div>`;
     } catch (err) {
       outputDiv.innerHTML = `<div class="ai-output" style="border-color:var(--red-border);color:var(--red-text);">Error: ${err.message}</div>`;
     }
   }
+
 </script>
 </body>
 </html>
