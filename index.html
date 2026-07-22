@@ -475,43 +475,22 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" onclick="showTab('library', this)">Ad library</div>
-    <div class="tab" onclick="showTab('paste', this)">Paste ads</div>
+    <div class="tab active" onclick="showTab('paste', this)">Paste ads</div>
     <div class="tab" onclick="showTab('analysis', this)">Analysis</div>
-    <div class="tab" onclick="showTab('template', this)">Script template</div>
     <div class="tab" onclick="showTab('generate', this)">AI script builder</div>
   </div>
 
   <div class="main">
 
-    <!-- TAB: Library -->
-    <div id="tab-library" class="tab-panel active">
-      <div class="card">
-        <div class="card-label">Meta Ads Library. Direct links scoped to brand.</div>
-        <div id="libLinks"></div>
-      </div>
-      <div class="card">
-        <div class="card-label">What to look for</div>
-        <div style="color:var(--text-2);font-size:13px;line-height:2;">
-          1. Longest running ads. Longevity is the closest public proxy for performance.<br>
-          2. Repeated formats. Video, image, carousel. What they keep coming back to.<br>
-          3. First frame text or opening line. That's the hook they're betting on.<br>
-          4. What problem or desire they lead with every time.<br>
-          5. How they close. CTA wording and placement.<br>
-          6. Which product gets paired with which angle.<br><br>
-          Copy primary text and headlines. Paste into the Paste ads tab.
-        </div>
-      </div>
-    </div>
-
     <!-- TAB: Paste -->
-    <div id="tab-paste" class="tab-panel">
+    <div id="tab-paste" class="tab-panel active">
       <div class="card">
         <div class="card-label">Paste raw ad copy. One ad or many.</div>
         <textarea id="adInput" placeholder="Paste headline, primary text, or full script from any ad in the library. Hit Analyze to extract patterns."></textarea>
         <div class="btn-row">
           <button class="btn btn-amber" onclick="analyzeAd()">Analyze ad</button>
           <button class="btn btn-ghost" onclick="clearAnalysis()">Clear all</button>
+          <span id="adCount" style="font-size:12px;color:var(--text-3);font-family:var(--mono);align-self:center;"></span>
         </div>
       </div>
       <div class="card" style="border-color:var(--amber-border);">
@@ -549,50 +528,12 @@
         <div class="card-label">Hook patterns detected</div>
         <div id="hookOut"><span class="empty">Paste ads to start mapping.</span></div>
       </div>
+      <div class="card">
+        <div class="card-label">Top keywords by frequency</div>
+        <div id="freqOut" class="tag-row"><span class="empty">Paste ads to see top keywords.</span></div>
+      </div>
       <hr class="divider">
-      <button class="btn btn-amber" onclick="showTab('generate', document.querySelectorAll('.tab')[4])">Build scripts from this analysis</button>
-    </div>
-
-    <!-- TAB: Template -->
-    <div id="tab-template" class="tab-panel">
-      <div style="color:var(--text-2);font-size:13px;margin-bottom:1.25rem;line-height:1.7;">
-        Fill in the brackets for each segment. Every field maps to a specific second-range in a 30-45 second UGC or direct response script.
-      </div>
-
-      <div class="template-block">
-        <div class="tblock-label">Hook</div>
-        <div class="tblock-timing">0 to 3 seconds. Stop scroll. No greeting.</div>
-        <textarea class="tblock-fill" id="t1" placeholder="Pain point, identity statement, or pattern interrupt. Name their body type, their failure, or the thing they've given up on."></textarea>
-      </div>
-
-      <div class="template-block">
-        <div class="tblock-label">Problem agitate</div>
-        <div class="tblock-timing">3 to 8 seconds. One sentence. Name the specific fail.</div>
-        <textarea class="tblock-fill" id="t2" placeholder="Rolling down, underwire digging, no support, sweating through it, falls apart by noon. One thing. Don't linger here."></textarea>
-      </div>
-
-      <div class="template-block">
-        <div class="tblock-label">Product as the answer</div>
-        <div class="tblock-timing">8 to 18 seconds. Name the brand and one specific mechanism.</div>
-        <textarea class="tblock-fill" id="t3" placeholder="Name the brand + the specific feature that solves the pain above. One mechanism per script. Don't stack features here."></textarea>
-      </div>
-
-      <div class="template-block">
-        <div class="tblock-label">Transformation</div>
-        <div class="tblock-timing">18 to 25 seconds. Specific result, not a feeling.</div>
-        <textarea class="tblock-fill" id="t4" placeholder="What life looks like after. Not 'you'll feel confident.' Specific: 'by noon it still hadn't moved' or 'I forgot I put it on.'"></textarea>
-      </div>
-
-      <div class="template-block">
-        <div class="tblock-label">Value anchor + CTA</div>
-        <div class="tblock-timing">Final 5 seconds. Price or range. Direct action.</div>
-        <textarea class="tblock-fill" id="t5" placeholder="Price, size range, or both. One direct CTA. Nothing after the CTA."></textarea>
-      </div>
-
-      <div class="btn-row" style="margin-top:1rem;">
-        <button class="btn btn-amber" onclick="buildFromTemplate()">Generate full script from this template</button>
-        <button class="btn btn-ghost" onclick="clearTemplate()">Clear template</button>
-      </div>
+      <button class="btn btn-amber" onclick="showTab('generate', document.querySelector('[onclick*="generate"]'))">Build scripts from this analysis</button>
     </div>
 
     <!-- TAB: AI Script Builder -->
@@ -621,10 +562,30 @@
   let topicFound = new Set();
   let hooksFound = [];
   let adsCount = 0;
+  let allAdText = [];
 
-  const painKeywords = ['roll','rolling','digs','dig in','uncomfortable','falls','slide','sweat','chaf','irritat','heat rash','gap','spill','flatten','squish','suffocate','bounce','adjust','fix it','take off','fall down','too tight','painful','underwire','wire','hurt','sag','sagging','support','no support','loose','bunching','bunch'];
-  const valueKeywords = ['lift','support','comfortable','smooth','breathable','soft','stay','held','shape','all day','buttery','no wire','wireless','no underwire','worth','size','range','confidence','confident','rounded','centered','sculpt','boost','bbl','lifted','seamless','invisible','lightweight'];
-  const topicKeywords = ['summer','wedding','postpartum','workout','nursing','travel','night out','work','everyday','plus','curvy','big','small','shallow','east west','side set','asymmetri','bbl','first time','all day','date night','event','office','denim'];
+  const painKeywords = [
+    'roll','rolling','dig','uncomfortable','falls','sliding','sweat','chaf','irritat',
+    'heat rash','gap','spill','flatten','squish','suffocate','bounce','adjust',
+    'take off','too tight','painful','underwire','wire','hurt','sag','no support',
+    'loose','bunch','ride up','cuts in','digs in','falls down','falls out',
+    'gaps','wont stay','never stays','rolls down','uncomfortable','not comfortable'
+  ];
+  const valueKeywords = [
+    'lift','lifted','lifting','support','comfortable','smooth','breathable','soft',
+    'stay','stayed','holds','shape','all day','buttery','no wire','wireless',
+    'no underwire','worth it','size','sizes','range','confidence','confident',
+    'rounded','centered','sculpt','boost','bbl','seamless','invisible','lightweight',
+    'stays put','all-day','comfortable all','forget','forgot','didnt move','didnt roll',
+    'worth the','medium support','daily wear','everyday wear'
+  ];
+  const topicKeywords = [
+    'summer','wedding','postpartum','workout','nursing','travel','night out',
+    'work','everyday','plus size','curvy','big','small','shallow','east west',
+    'side set','asymmetri','bbl','first time','date night','event','office',
+    'denim','bigger','smaller','large','petite','full bust','full cup',
+    'crossbra','cross bra','shapewear','shorts','bodysuit','bra'
+  ];
 
   document.getElementById('brandInput').addEventListener('input', function() {
     const v = this.value.trim();
@@ -676,7 +637,7 @@
     document.getElementById('livePreview').textContent = 'any brand';
     document.getElementById('landing').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
-    showTab('library', document.querySelectorAll('.tab')[0]);
+    showTab('paste', document.querySelector('[onclick*="paste"]'));
   }
 
   function showTab(name, el) {
@@ -690,6 +651,7 @@
     const text = document.getElementById('adInput').value.trim().toLowerCase();
     if (!text) return;
     adsCount++;
+    allAdText.push(text);
     const lines = text.split(/[\n.!?]+/).map(l => l.trim()).filter(Boolean);
     if (lines.length > 0) hooksFound.push(lines[0]);
     painKeywords.forEach(k => { if (text.includes(k)) painFound.add(k); });
@@ -697,7 +659,8 @@
     topicKeywords.forEach(k => { if (text.includes(k)) topicFound.add(k); });
     renderAnalysis();
     document.getElementById('adInput').value = '';
-    showTab('analysis', document.querySelectorAll('.tab')[2]);
+    document.getElementById('adCount').textContent = adsCount + ' ad' + (adsCount !== 1 ? 's' : '') + ' analyzed';
+    showTab('analysis', document.querySelector('[onclick*="analysis"]'));
   }
 
   function renderAnalysis() {
@@ -705,6 +668,18 @@
     document.getElementById('cntPain').textContent = painFound.size;
     document.getElementById('cntValue').textContent = valueFound.size;
     document.getElementById('cntTopic').textContent = topicFound.size;
+    
+    // Word frequency map
+    const allWords = [...allAdText].join(' ').toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !['that','this','with','from','have','they','were','your','what','when','just','more','than','will','been','also','into','very','some','their','about','would','could','there','which','these'].includes(w));
+    const freq = {};
+    allWords.forEach(w => freq[w] = (freq[w] || 0) + 1);
+    const topWords = Object.entries(freq).sort((a,b) => b[1]-a[1]).slice(0,20);
+    document.getElementById('freqOut').innerHTML = topWords.length
+      ? topWords.map(([w,c]) => `<span class="tag topic" style="opacity:${Math.max(0.4, c/topWords[0][1])}">${w} <span style="font-size:10px;opacity:0.7">${c}</span></span>`).join('')
+      : '<span class="empty">Paste ads to see top keywords.</span>';
 
     document.getElementById('painOut').innerHTML = painFound.size
       ? [...painFound].map(p => `<span class="tag pain">${p}</span>`).join('')
@@ -725,7 +700,7 @@
 
   function clearAnalysis() {
     painFound.clear(); valueFound.clear(); topicFound.clear();
-    hooksFound = []; adsCount = 0;
+    hooksFound = []; adsCount = 0; allAdText = [];
     document.getElementById('adInput').value = '';
     renderAnalysis();
   }
@@ -739,7 +714,7 @@
     if (!parts.length) return;
     const prompt = `Brand: ${currentBrand}\n\nScript template filled in:\nHook: ${document.getElementById('t1').value}\nProblem: ${document.getElementById('t2').value}\nProduct answer: ${document.getElementById('t3').value}\nTransformation: ${document.getElementById('t4').value}\nCTA: ${document.getElementById('t5').value}\n\nUsing this template, write a polished, native UGC script that flows as a single natural piece of speech. Max 150 words. No greetings. No em dashes. No corporate language. Warm, direct, real.`;
     document.getElementById('genPrompt').value = prompt;
-    showTab('generate', document.querySelectorAll('.tab')[4]);
+    showTab('generate', document.querySelector('[onclick*="generate"]'));
     generateScript();
   }
 
