@@ -17,48 +17,107 @@ export default async function handler(req, res) {
   if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
 
   try {
-    // Fetch the Meta Ads Library page for this brand
-    const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(brand)}&search_type=keyword_unordered&media_type=all`;
+    // Run Meta Ads Library fetch and Reddit searches in parallel
+    const keywordList = keywords ? keywords.split(',').map(k => k.trim()) : [brand];
+    const searchTerms = [brand, ...keywordList].slice(0, 3);
 
-    const pageRes = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+    const [metaRes, ...redditResults] = await Promise.allSettled([
+      // Meta Ads Library
+      fetch(`https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(brand)}&search_type=keyword_unordered&media_type=all`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      }),
+      // Reddit searches for brand + keywords
+      ...searchTerms.map(term =>
+        fetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(term + ' review OR honest OR hate OR love OR uncomfortable OR fit')}&sort=relevance&limit=10&type=link`, {
+          headers: {
+            'User-Agent': 'InteliAds/1.0 (ad intelligence research tool)',
+            'Accept': 'application/json'
+          }
+        })
+      )
+    ]);
+
+    // Extract Meta content
+    let metaContent = '';
+    if (metaRes.status === 'fulfilled' && metaRes.value.ok) {
+      const html = await metaRes.value.text();
+      metaContent = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .slice(0, 3000);
+    }
+
+    // Extract Reddit content
+    let redditContent = '';
+    for (const result of redditResults) {
+      if (result.status === 'fulfilled' && result.value.ok) {
+        try {
+          const data = await result.value.json();
+          const posts = data?.data?.children || [];
+          const postTexts = posts.map(p => {
+            const d = p.data;
+            return `TITLE: ${d.title || ''} | SELFTEXT: ${(d.selftext || '').slice(0, 300)} | SUBREDDIT: r/${d.subreddit || ''}`;
+          }).join('\n');
+          redditContent += postTexts + '\n';
+        } catch {}
       }
-    });
+    }
 
-    const html = await pageRes.text();
+    // Also fetch top Reddit comments for brand
+    let redditComments = '';
+    try {
+      const commentRes = await fetch(
+        `https://www.reddit.com/search.json?q=${encodeURIComponent(brand)}&sort=top&limit=5&type=comment`,
+        { headers: { 'User-Agent': 'InteliAds/1.0', 'Accept': 'application/json' } }
+      );
+      if (commentRes.ok) {
+        const commentData = await commentRes.json();
+        const comments = commentData?.data?.children || [];
+        redditComments = comments.map(c => c.data?.body || '').filter(Boolean).join('\n').slice(0, 2000);
+      }
+    } catch {}
 
-    // Extract any visible text content from the page
-    const textContent = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .slice(0, 8000);
+    // Build the full context for Claude
+    const fullContext = `
+META ADS LIBRARY DATA:
+${metaContent || 'Limited data available from Meta Ads Library.'}
 
-    // Use Claude to analyze whatever we got and generate intelligence
-    const systemPrompt = `You are an ad intelligence analyst. You analyze Meta Ads Library data and extract creative intelligence for a brand. 
+REDDIT POSTS AND DISCUSSIONS:
+${redditContent || 'No Reddit posts found.'}
 
-Your job is to analyze whatever content is available and return a JSON object with this exact structure:
+REDDIT COMMENTS FROM REAL USERS:
+${redditComments || 'No Reddit comments found.'}
+`.slice(0, 10000);
+
+    const systemPrompt = `You are an ad intelligence analyst specializing in DTC consumer brands. You analyze real consumer language from Reddit, social media, and ad data to extract authentic creative intelligence.
+
+Your job is to find the RAW, UNFILTERED language real people use when talking about this product category. Not marketing language. The exact words real customers type when they're frustrated, happy, or honest.
+
+Return ONLY a valid JSON object with this exact structure, no other text:
 {
-  "topHeadlines": ["headline 1", "headline 2", "headline 3", "headline 4", "headline 5"],
-  "painPoints": ["pain point 1", "pain point 2", "pain point 3", "pain point 4", "pain point 5"],
-  "valueProps": ["value prop 1", "value prop 2", "value prop 3", "value prop 4", "value prop 5"],
-  "topTopics": ["topic 1", "topic 2", "topic 3", "topic 4", "topic 5"],
-  "topKeywords": ["keyword 1", "keyword 2", "keyword 3", "keyword 4", "keyword 5", "keyword 6", "keyword 7", "keyword 8", "keyword 9", "keyword 10"],
-  "hookPatterns": ["hook pattern 1", "hook pattern 2", "hook pattern 3"],
-  "scriptRecommendation": "A 2-3 sentence recommendation on what angle to script next based on gaps or opportunities you see."
-}
-
-If the page content doesn't have enough ad data, use your training knowledge about the brand to fill in likely patterns based on the brand name and any keywords provided. Always return valid JSON only, no other text.`;
+  "topHeadlines": ["5 specific ad headlines or hooks you detected or would predict based on data"],
+  "painPoints": ["5 specific pain points in real customer language, e.g. 'rolls down by noon', 'wire digs in after 2 hours', not generic phrases"],
+  "valueProps": ["5 specific value props with mechanism, e.g. 'no underwire but holds size 36DDD', not just 'comfortable'"],
+  "topTopics": ["5 content topics that are resonating, e.g. 'postpartum body changes', 'wedding shapewear panic', 'first time trying shapewear'"],
+  "topKeywords": ["10 exact words and phrases real people use in Reddit posts and reviews, not marketing terms"],
+  "hookPatterns": ["3 specific hook structures working right now with example wording"],
+  "redditInsights": ["3-5 direct quotes or paraphrases of real things people said on Reddit about this brand or category"],
+  "scriptRecommendation": "2-3 sentences on the highest opportunity script angle based on what real people are saying vs what ads are currently doing. Be specific about the gap."
+}`;
 
     const userMessage = `Brand: ${brand}
-Keywords to focus on: ${keywords || 'all products'}
-Page content extracted from Meta Ads Library: ${textContent}
+Keywords/products to focus on: ${keywords || 'all products'}
 
-Analyze this and return the JSON intelligence object.`;
+Here is all the data gathered:
+${fullContext}
+
+Extract the real consumer language and intelligence. Focus especially on Reddit data since that's where people are most honest. Return the JSON object.`;
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -69,7 +128,7 @@ Analyze this and return the JSON intelligence object.`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
+        max_tokens: 2000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
       })
@@ -83,7 +142,7 @@ Analyze this and return the JSON intelligence object.`;
       const clean = claudeText.replace(/```json|```/g, '').trim();
       intelligence = JSON.parse(clean);
     } catch {
-      intelligence = { error: 'Could not parse intelligence', raw: claudeText.slice(0, 200) };
+      intelligence = { error: 'Parse failed', raw: claudeText.slice(0, 300) };
     }
 
     return res.status(200).json({ success: true, brand, intelligence });
