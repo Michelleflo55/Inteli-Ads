@@ -540,7 +540,7 @@
         <div id="freqOut" class="tag-row"><span class="empty">Paste ads to see top keywords.</span></div>
       </div>
       <hr class="divider">
-      <button class="btn btn-amber" onclick="showTab('generate', document.querySelector('[onclick*="generate"]'))">Build scripts from this analysis</button>
+      <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts from this analysis</button>
     </div>
 
     <!-- TAB: AI Script Builder -->
@@ -833,6 +833,15 @@
     }
   }
 
+  function goToScriptBuilder() {
+    const tab = document.querySelector('.tab:last-child');
+    showTab('generate', tab);
+    if (!document.getElementById('genPrompt').value) {
+      generateScript();
+    } else {
+      generateScript();
+    }
+  }
 </script>
 </body>
 </html>
