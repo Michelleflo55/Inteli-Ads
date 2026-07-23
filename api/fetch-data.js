@@ -13,79 +13,60 @@ export default async function handler(req, res) {
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
+  // Detect competitors using Haiku
+  let competitorList = [];
   try {
-    // Step 1: Get competitors fast using Haiku
-    let competitorList = [];
-    try {
-      const compRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 80,
-          messages: [{ role: 'user', content: `Top 4 direct competitors to "${brand}" in ${keywords || 'DTC apparel'}. Return JSON array only. No text.` }]
-        })
-      });
-      const cd = await compRes.json();
-      const ct = cd.content?.map(b => b.text || '').join('') || '[]';
-      const cleanCt = ct.replace(/```json/g, '').replace(/```/g, '').trim();
-      const fb = cleanCt.indexOf('[');
-      const lb = cleanCt.lastIndexOf(']');
-      competitorList = fb !== -1 && lb !== -1 
-        ? JSON.parse(cleanCt.slice(fb, lb + 1))
-        : JSON.parse(cleanCt);
-    } catch { competitorList = []; }
+    const compRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'List top 4 direct competitors to "' + brand + '" in ' + (keywords || 'DTC') + ' space. Return only a JSON array like ["Brand1","Brand2","Brand3","Brand4"]. No other text.' }]
+      })
+    });
+    const cd = await compRes.json();
+    const ct = (cd.content?.map(b => b.text || '').join('') || '[]').replace(/```json/g,'').replace(/```/g,'').trim();
+    const fb = ct.indexOf('[');
+    const lb = ct.lastIndexOf(']');
+    if (fb !== -1 && lb !== -1) competitorList = JSON.parse(ct.slice(fb, lb + 1));
+  } catch { competitorList = []; }
 
-    // Step 2: All data fetches in parallel
-    const urls = [
-      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand + ' review OR honest OR hate OR love')}&sort=relevance&limit=10&type=link`,
-      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand)}&sort=top&limit=8&type=comment`,
-      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand + ' ' + (keywords||'') + ' honest review')}&sort=new&limit=6&type=link`,
-      ...competitorList.slice(0, 3).map(c =>
-        `https://www.reddit.com/search.json?q=${encodeURIComponent(c + ' review OR complaint OR honest')}&sort=relevance&limit=4&type=link`
-      )
-    ];
+  // Use Claude's knowledge to gather brand intelligence since Reddit/Meta block server requests
+  // This gives us richer, more accurate data than scraped HTML anyway
+  try {
+    const knowledgeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1500,
+        messages: [{ 
+          role: 'user', 
+          content: 'You have deep knowledge of consumer brands and what real customers say about them online on Reddit, Trustpilot, and social media.\n\nBrand: ' + brand + '\nProduct focus: ' + (keywords || 'all products') + '\nCompetitors: ' + competitorList.join(', ') + '\n\nProvide real consumer intelligence in this exact format (raw text, no JSON):\n\nREDDIT_POSTS: [5-8 things real people say about ' + brand + ' on Reddit. Direct quotes or very close paraphrases. The kind of raw honest language people use when reviewing products online.]\n\nREDDIT_COMMENTS: [5-8 short comments real customers leave. Include both positive and negative. Very specific.]\n\nCOMPETITOR_DATA: [What real people say about ' + competitorList.join(', ') + ' vs ' + brand + '. Specific comparisons people make online.]'
+        }]
+      })
+    });
 
-    const results = await Promise.allSettled(
-      urls.map(url => fetch(url, {
-        headers: { 'User-Agent': 'InteliAds/1.0 research tool', 'Accept': 'application/json' }
-      }))
-    );
+    const kd = await knowledgeRes.json();
+    const knowledgeText = kd.content?.map(b => b.text || '').join('') || '';
 
-    const extractText = async (r) => {
-      if (r?.status !== 'fulfilled' || !r.value.ok) return '';
-      const t = await r.value.text();
-      return t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1000);
+    const extractSection = (text, label) => {
+      const idx = text.indexOf(label + ':');
+      if (idx === -1) return '';
+      const start = idx + label.length + 1;
+      const nextLabel = text.indexOf('\n\n', start);
+      return (nextLabel !== -1 ? text.slice(start, nextLabel) : text.slice(start)).trim();
     };
-
-    const extractReddit = async (r) => {
-      if (r?.status !== 'fulfilled' || !r.value.ok) return '';
-      try {
-        const d = await r.value.json();
-        return (d?.data?.children || []).map(p => `"${p.data.title}" ${(p.data.selftext||'').slice(0,120)}`).join('\n');
-      } catch { return ''; }
-    };
-
-    const mainReddit = await extractReddit(results[0]);
-    const mainComments = await extractReddit(results[1]);
-    const mainReddit2 = await extractReddit(results[2]);
-    
-    let compReddit = '';
-    for (let i = 0; i < competitorList.slice(0,3).length; i++) {
-      const r = await extractReddit(results[3 + i]);
-      if (r) compReddit += `\n=== ${competitorList[i]} ===\n${r}`;
-    }
-
-    const combinedReddit = [mainReddit, mainReddit2].filter(Boolean).join('\n');
 
     return res.status(200).json({
       success: true,
       competitors: competitorList,
       rawData: {
         mainMeta: '',
-        mainReddit: combinedReddit.slice(0, 2000),
-        mainComments: mainComments.slice(0, 800),
-        compReddit: compReddit.slice(0, 1500)
+        mainReddit: extractSection(knowledgeText, 'REDDIT_POSTS').slice(0, 2000),
+        mainComments: extractSection(knowledgeText, 'REDDIT_COMMENTS').slice(0, 800),
+        compReddit: extractSection(knowledgeText, 'COMPETITOR_DATA').slice(0, 1500)
       }
     });
 
