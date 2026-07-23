@@ -49,24 +49,22 @@ export default async function handler(req, res) {
     });
 
     const kd = await knowledgeRes.json();
+    if (kd.error) {
+      return res.status(500).json({ error: 'Knowledge fetch failed: ' + JSON.stringify(kd.error), competitors: competitorList });
+    }
     const knowledgeText = kd.content?.map(b => b.text || '').join('') || '';
-
-    const extractSection = (text, label) => {
-      const idx = text.indexOf(label + ':');
-      if (idx === -1) return '';
-      const start = idx + label.length + 1;
-      const nextLabel = text.indexOf('\n\n', start);
-      return (nextLabel !== -1 ? text.slice(start, nextLabel) : text.slice(start)).trim();
-    };
+    if (!knowledgeText) {
+      return res.status(500).json({ error: 'Empty knowledge response', raw: JSON.stringify(kd).slice(0, 200), competitors: competitorList });
+    }
 
     return res.status(200).json({
       success: true,
       competitors: competitorList,
       rawData: {
         mainMeta: '',
-        mainReddit: extractSection(knowledgeText, 'REDDIT_POSTS').slice(0, 2000),
-        mainComments: extractSection(knowledgeText, 'REDDIT_COMMENTS').slice(0, 800),
-        compReddit: extractSection(knowledgeText, 'COMPETITOR_DATA').slice(0, 1500)
+        mainReddit: knowledgeText.slice(0, 2000),
+        mainComments: knowledgeText.slice(2000, 2800),
+        compReddit: knowledgeText.slice(2800, 4000)
       }
     });
 
