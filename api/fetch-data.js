@@ -8,8 +8,12 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  const { brand, keywords } = body;
+  const { brand, keywords: rawKeywords } = body;
   if (!brand) return res.status(400).json({ error: 'Brand required' });
+  // Sanitize keywords - strip special chars, normalize commas
+  const keywords = rawKeywords 
+    ? rawKeywords.replace(/[^a-zA-Z0-9,\s]/g, '').split(/[,\s]+/).filter(Boolean).join(', ')
+    : '';
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
@@ -43,7 +47,7 @@ export default async function handler(req, res) {
         max_tokens: 1500,
         messages: [{ 
           role: 'user', 
-          content: 'You have deep knowledge of consumer brands and what real customers say about them online on Reddit, Trustpilot, and social media.\n\nBrand: ' + brand + '\nProduct focus: ' + (keywords || 'all products') + '\nCompetitors: ' + competitorList.join(', ') + '\n\nProvide real consumer intelligence in this exact format (raw text, no JSON):\n\nREDDIT_POSTS: [5-8 things real people say about ' + brand + ' on Reddit. Direct quotes or very close paraphrases. The kind of raw honest language people use when reviewing products online.]\n\nREDDIT_COMMENTS: [5-8 short comments real customers leave. Include both positive and negative. Very specific.]\n\nCOMPETITOR_DATA: [What real people say about ' + competitorList.join(', ') + ' vs ' + brand + '. Specific comparisons people make online.]'
+          content: 'Based on your training knowledge of consumer sentiment, product reviews, and market positioning for brands in this space, provide strategic intelligence for: ' + brand + ' (keywords: ' + (keywords || 'all') + ').\n\nCompetitors to analyze: ' + competitorList.join(', ') + '\n\nUsing what you know about this brand category, typical consumer language, and common pain points people discuss when reviewing similar products, provide:\n\nCONSUMER_LANGUAGE: Write 8-10 examples of the kind of language real consumers use when discussing ' + brand + ' and similar products. Base this on known consumer patterns for this category. Be specific to the product type.\n\nPAIN_POINTS: List 6-8 specific frustrations consumers commonly experience with products in this category based on typical review patterns.\n\nCOMPETITOR_COMPARISON: Based on known market positioning, describe how consumers typically compare ' + brand + ' to ' + competitorList.join(', ') + '. What do people say when switching or comparing?\n\nIMPORTANT: Base all responses on real category knowledge and typical consumer patterns, not fabricated quotes. Be specific to this product category and brand.'
         }]
       })
     });
@@ -57,14 +61,23 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Empty knowledge response', raw: JSON.stringify(kd).slice(0, 200), competitors: competitorList });
     }
 
+    // Extract sections
+    const getSection = (text, label) => {
+      const idx = text.indexOf(label + ':');
+      if (idx === -1) return text.slice(0, 1000); // fallback to full text
+      const start = idx + label.length + 1;
+      const next = text.indexOf('\n\n', start + 50);
+      return (next !== -1 ? text.slice(start, next) : text.slice(start)).trim();
+    };
+
     return res.status(200).json({
       success: true,
       competitors: competitorList,
       rawData: {
         mainMeta: '',
-        mainReddit: knowledgeText.slice(0, 2000),
-        mainComments: knowledgeText.slice(2000, 2800),
-        compReddit: knowledgeText.slice(2800, 4000)
+        mainReddit: getSection(knowledgeText, 'CONSUMER_LANGUAGE').slice(0, 2000),
+        mainComments: getSection(knowledgeText, 'PAIN_POINTS').slice(0, 800),
+        compReddit: getSection(knowledgeText, 'COMPETITOR_COMPARISON').slice(0, 1500)
       }
     });
 
