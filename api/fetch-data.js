@@ -28,7 +28,12 @@ export default async function handler(req, res) {
       });
       const cd = await compRes.json();
       const ct = cd.content?.map(b => b.text || '').join('') || '[]';
-      competitorList = JSON.parse(ct.replace(/```json|```/g, '').trim());
+      const cleanCt = ct.replace(/```json/g, '').replace(/```/g, '').trim();
+      const fb = cleanCt.indexOf('[');
+      const lb = cleanCt.lastIndexOf(']');
+      competitorList = fb !== -1 && lb !== -1 
+        ? JSON.parse(cleanCt.slice(fb, lb + 1))
+        : JSON.parse(cleanCt);
     } catch { competitorList = []; }
 
     // Step 2: All data fetches in parallel with tight timeout
