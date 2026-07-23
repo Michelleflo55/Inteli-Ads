@@ -690,28 +690,23 @@
   let adsCount = 0;
   let allAdText = [];
 
-  const painKeywords = [
-    'roll','rolling','dig','uncomfortable','falls','sliding','sweat','chaf','irritat',
-    'heat rash','gap','spill','flatten','squish','suffocate','bounce','adjust',
-    'take off','too tight','painful','underwire','wire','hurt','sag','no support',
-    'loose','bunch','ride up','cuts in','digs in','falls down','falls out',
-    'gaps','wont stay','never stays','rolls down','uncomfortable','not comfortable'
-  ];
-  const valueKeywords = [
-    'lift','lifted','lifting','support','comfortable','smooth','breathable','soft',
-    'stay','stayed','holds','shape','all day','buttery','no wire','wireless',
-    'no underwire','worth it','size','sizes','range','confidence','confident',
-    'rounded','centered','sculpt','boost','bbl','seamless','invisible','lightweight',
-    'stays put','all-day','comfortable all','forget','forgot','didnt move','didnt roll',
-    'worth the','medium support','daily wear','everyday wear'
-  ];
-  const topicKeywords = [
-    'summer','wedding','postpartum','workout','nursing','travel','night out',
-    'work','everyday','plus size','curvy','big','small','shallow','east west',
-    'side set','asymmetri','bbl','first time','date night','event','office',
-    'denim','bigger','smaller','large','petite','full bust','full cup',
-    'crossbra','cross bra','shapewear','shorts','bodysuit','bra'
-  ];
+  // Dynamic keyword lists - updated per brand when dashboard loads
+  let painKeywords = ['problem','issue','doesnt work','frustrated','waste','return','broken','bad','hate','wrong','fail','broke','stopped','never','worst'];
+  let valueKeywords = ['love','great','amazing','works','perfect','best','recommend','happy','satisfied','finally','worth','excellent','changed','improved'];
+  let topicKeywords = ['first time','review','honest','bought','ordered','tried','using','wearing','after','before','weeks','months','daily','everyday'];
+
+  function updateDynamicKeywords(dynamicKeywords) {
+    if (!dynamicKeywords) return;
+    if (dynamicKeywords.pain && dynamicKeywords.pain.length) {
+      painKeywords = dynamicKeywords.pain.map(k => k.toLowerCase());
+    }
+    if (dynamicKeywords.value && dynamicKeywords.value.length) {
+      valueKeywords = dynamicKeywords.value.map(k => k.toLowerCase());
+    }
+    if (dynamicKeywords.topic && dynamicKeywords.topic.length) {
+      topicKeywords = dynamicKeywords.topic.map(k => k.toLowerCase());
+    }
+  }
 
   document.getElementById('brandInput').addEventListener('input', function() {
     const v = this.value.trim();
@@ -790,6 +785,9 @@
 
       // Populate Analysis tab
       document.getElementById('cntAds').textContent = '✓';
+
+      // Update keyword lists to be brand-specific
+      if (intel.dynamicKeywords) updateDynamicKeywords(intel.dynamicKeywords);
       document.getElementById('cntPain').textContent = (intel.painPoints || []).length;
       document.getElementById('cntValue').textContent = (intel.valueProps || []).length;
       document.getElementById('cntTopic').textContent = (intel.topTopics || []).length;
