@@ -494,6 +494,7 @@
   <div class="tabs">
     <div class="tab active" onclick="showTab('paste', this)">Paste ads</div>
     <div class="tab" onclick="showTab('analysis', this)">Analysis</div>
+    <div class="tab" onclick="showTab('competitors', this)">Competitors</div>
     <div class="tab" onclick="showTab('generate', this)">AI script builder</div>
   </div>
 
@@ -529,11 +530,6 @@
         <div class="metric"><div class="metric-n" id="cntTopic">0</div><div class="metric-l">Topics</div></div>
       </div>
 
-      <div class="card" id="detectedCompCard" style="display:none;border-color:var(--amber-border);">
-        <div class="card-label" style="color:var(--amber);">Auto-detected competitors</div>
-        <div id="detectedCompOut" class="tag-row"></div>
-      </div>
-
       <div class="card">
         <div class="card-label">Pain points detected</div>
         <div id="painOut" class="tag-row"><span class="empty">Paste ads to start mapping.</span></div>
@@ -558,24 +554,35 @@
         <div class="card-label" style="color:var(--red-text);">Reddit insights. Real people. Unfiltered.</div>
         <div id="redditOut"><span class="empty">Build dashboard to see Reddit data.</span></div>
       </div>
+
+      <hr class="divider">
+      <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts from this analysis</button>
+    </div>
+
+    <!-- TAB: Competitors -->
+    <div id="tab-competitors" class="tab-panel">
+      <div class="card" id="detectedCompCard" style="border-color:var(--amber-border);">
+        <div class="card-label" style="color:var(--amber);">Auto-detected competitors</div>
+        <div id="detectedCompOut" class="tag-row"><span class="empty">Build dashboard to detect competitors.</span></div>
+      </div>
       <div class="card" style="border-color:var(--purple-border);">
         <div class="card-label" style="color:var(--purple-text);">Angles competitors are running</div>
-        <div id="compAnglesOut"><span class="empty">Add competitors on the home screen.</span></div>
+        <div id="compAnglesOut"><span class="empty">Build dashboard to analyze competitors.</span></div>
       </div>
-      <div class="card" style="border-color:var(--red-border);">
-        <div class="card-label" style="color:var(--red-text);">Competitor complaints. Steal these wins.</div>
-        <div id="compComplaintsOut"><span class="empty">Add competitors on the home screen.</span></div>
+      <div class="card" style="border-color:var(--green-border);">
+        <div class="card-label" style="color:var(--green-text);">What's working for competitors that could work for us</div>
+        <div id="compComplaintsOut"><span class="empty">Build dashboard to analyze competitors.</span></div>
       </div>
       <div class="card" style="border-color:var(--amber-border);">
         <div class="card-label" style="color:var(--amber);">Keywords competitors are targeting</div>
-        <div id="compKeywordsOut" class="tag-row"><span class="empty">Add competitors on the home screen.</span></div>
+        <div id="compKeywordsOut" class="tag-row"><span class="empty">Build dashboard to analyze competitors.</span></div>
       </div>
       <div class="card" style="border-color:var(--green-border);">
         <div class="card-label" style="color:var(--green-text);">Gaps competitors are missing. Own these.</div>
-        <div id="compGapsOut"><span class="empty">Add competitors on the home screen.</span></div>
+        <div id="compGapsOut"><span class="empty">Build dashboard to analyze competitors.</span></div>
       </div>
       <hr class="divider">
-      <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts from this analysis</button>
+      <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts using competitor gaps</button>
     </div>
 
     <!-- TAB: AI Script Builder -->
@@ -745,10 +752,11 @@
           intel.competitorAngles.map(a => `<div class="hook-block" style="border-color:var(--purple-text);background:var(--purple-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${a}</div></div>`).join('');
       }
 
-      // Competitor complaints
-      if (intel.competitorComplaints && intel.competitorComplaints.length) {
+      // Competitor adaptations
+      const adaptations = intel.competitorAdaptations || intel.competitorComplaints || [];
+      if (adaptations.length) {
         document.getElementById('compComplaintsOut').innerHTML =
-          intel.competitorComplaints.map(c => `<div class="hook-block" style="border-color:var(--red-text);background:var(--red-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${c}</div></div>`).join('');
+          adaptations.map(c => `<div class="hook-block" style="border-color:var(--green-text);background:var(--green-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${c}</div></div>`).join('');
       }
 
       // Competitor keywords
