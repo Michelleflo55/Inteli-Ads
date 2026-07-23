@@ -32,7 +32,7 @@ TRENDING FORMATS: [Confession] | [POV] | [Reaction] | [Before After] | [List] | 
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 3000,
+        max_tokens: 4000,
         system: `You are a DTC ad strategist. Analyze brand data and return creative intelligence. Use real Reddit language. Be specific. Never vague.
 
 PERSONA RULES: Write personas like a real woman you know personally. Specific enough she reads it and says "that is literally me". BANNED WORDS: journey, empowered, confident, vibrant, thriving, balance, self-care, busy professional, modern woman, hustle, 2pm slump, overwhelmed, juggling, seamlessly, unlock, transform, elevate, relatable, authentic, resonate, lifestyle, busy mom.
@@ -51,7 +51,7 @@ Return ONLY valid JSON, no other text:
   "competitorKeywords": ["10 keywords competitors target"],
   "competitorGaps": ["5 untapped angles this brand could own"],
   "personas": [
-    {"type":"proven","identity":"Who she is in 4-6 words. Real not archetype. E.g. The Burnt Out Mom","description":"2 sentences. Her actual daily life. What she is tired of. Specific enough she says that is me.","why_she_buys":"The specific moment or situation that makes her try this. Not a general motivation.","hook":"First ad line in her voice. No greeting. No product name. Max 12 words.","angle":"How the product slots into her specific life situation.","redditQuote":"Real Reddit quote she would have written"},
+    {"type":"proven","identity":"4-6 words. Real. E.g. The Burnt Out Mom","description":"2 sentences. Her actual life. Specific.","why_she_buys":"The specific moment she finally tries this.","hook":"First ad line. No greeting. Max 12 words.","angle":"How product fits her life.","redditQuote":"Real Reddit quote"},
     {"type":"proven","identity":"...","description":"...","why_she_buys":"...","hook":"...","angle":"...","redditQuote":"..."},
     {"type":"proven","identity":"...","description":"...","why_she_buys":"...","hook":"...","angle":"...","redditQuote":"..."},
     {"type":"whitespace","identity":"Real underserved woman not in current creative","description":"Her life. Why ads miss her.","why_she_buys":"Specific trigger that would make her buy.","hook":"Hook for her real situation.","angle":"Why this is untapped and how the brand owns it.","redditQuote":""},
@@ -72,24 +72,43 @@ Return ONLY valid JSON, no other text:
 
     let intelligence;
     try {
-      // Strip markdown fences, whitespace, and any text before/after the JSON object
       const cleaned = analysisText
-        .replace(/```json/g, '')
+        .replace(/```json/gi, '')
         .replace(/```/g, '')
         .trim();
       
-      // Find the outermost JSON object
       const firstBrace = cleaned.indexOf('{');
       const lastBrace = cleaned.lastIndexOf('}');
       
       if (firstBrace !== -1 && lastBrace !== -1) {
-        const jsonStr = cleaned.slice(firstBrace, lastBrace + 1);
-        intelligence = JSON.parse(jsonStr);
+        intelligence = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
       } else {
         intelligence = JSON.parse(cleaned);
       }
     } catch(e) {
-      intelligence = { error: 'Parse failed: ' + e.message, raw: analysisText.slice(0, 300) };
+      // If JSON is truncated, try to salvage what we have
+      try {
+        const cleaned = analysisText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const firstBrace = cleaned.indexOf('{');
+        if (firstBrace !== -1) {
+          // Try to find the last complete field
+          let truncated = cleaned.slice(firstBrace);
+          // Find last complete array by looking for last ],
+          const lastCompleteArray = truncated.lastIndexOf('],');
+          if (lastCompleteArray !== -1) {
+            truncated = truncated.slice(0, lastCompleteArray + 1) + '
+,"scriptRecommendation":"Analysis partially loaded. Regenerate for full output."
+}';
+            intelligence = JSON.parse(truncated);
+          } else {
+            intelligence = { error: 'Response truncated. Try again.', raw: analysisText.slice(0, 400) };
+          }
+        } else {
+          intelligence = { error: 'Parse failed: ' + e.message, raw: analysisText.slice(0, 400) };
+        }
+      } catch {
+        intelligence = { error: 'Parse failed: ' + e.message, raw: analysisText.slice(0, 400) };
+      }
     }
 
     return res.status(200).json({ success: true, brand, competitors, intelligence });
