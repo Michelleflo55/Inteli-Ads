@@ -8,8 +8,12 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  const { brand, keywords, competitors, rawData } = body;
+  const { brand, keywords: rawKeywords, competitors, rawData } = body;
   if (!brand || !rawData) return res.status(400).json({ error: 'Brand and rawData required' });
+  // Sanitize keywords
+  const keywords = rawKeywords
+    ? rawKeywords.replace(/[^a-zA-Z0-9,\s]/g, '').split(/[,\s]+/).filter(Boolean).join(', ')
+    : '';
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) return res.status(500).json({ error: 'API key not configured' });
