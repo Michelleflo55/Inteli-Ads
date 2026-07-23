@@ -43,22 +43,23 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ 
           role: 'user', 
-          content: 'Based on your training knowledge of consumer sentiment, product reviews, and market positioning for brands in this space, provide strategic intelligence for: ' + brand + ' (keywords: ' + (keywords || 'all') + ').\n\nCompetitors to analyze: ' + competitorList.join(', ') + '\n\nUsing what you know about this brand category, typical consumer language, and common pain points people discuss when reviewing similar products, provide:\n\nCONSUMER_LANGUAGE: Write 8-10 examples of the kind of language real consumers use when discussing ' + brand + ' and similar products. Base this on known consumer patterns for this category. Be specific to the product type.\n\nPAIN_POINTS: List 6-8 specific frustrations consumers commonly experience with products in this category based on typical review patterns.\n\nCOMPETITOR_COMPARISON: Based on known market positioning, describe how consumers typically compare ' + brand + ' to ' + competitorList.join(', ') + '. What do people say when switching or comparing?\n\nIMPORTANT: Base all responses on real category knowledge and typical consumer patterns, not fabricated quotes. Be specific to this product category and brand.'
+          content: 'Search Reddit, Trustpilot, and review sites for real consumer language about ' + brand + (keywords ? ' and their ' + keywords + ' products' : '') + '. Also search for what people say about ' + (competitorList.join(', ') || 'competitors in this space') + '. Find actual quotes and recurring complaints or praises. Return a plain text summary with these sections:\n\nCONSUMER_LANGUAGE: Real quotes and language patterns from reviews\n\nPAIN_POINTS: Specific frustrations people mention repeatedly\n\nCOMPETITOR_COMPARISON: What people say when comparing brands in this space'
         }]
       })
     });
 
     const kd = await knowledgeRes.json();
     if (kd.error) {
-      return res.status(500).json({ error: 'Knowledge fetch failed: ' + JSON.stringify(kd.error), competitors: competitorList });
+      return res.status(500).json({ error: 'Search failed: ' + JSON.stringify(kd.error), competitors: competitorList });
     }
-    const knowledgeText = kd.content?.map(b => b.text || '').join('') || '';
+    const knowledgeText = (kd.content || []).filter(b => b.type === 'text').map(b => b.text || '').join('') || '';
     if (!knowledgeText) {
-      return res.status(500).json({ error: 'Empty knowledge response', raw: JSON.stringify(kd).slice(0, 200), competitors: competitorList });
+      return res.status(500).json({ error: 'Empty search response', competitors: competitorList });
     }
 
     // Extract sections
