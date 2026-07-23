@@ -72,16 +72,24 @@ Return ONLY valid JSON, no other text:
 
     let intelligence;
     try {
-      intelligence = JSON.parse(analysisText.replace(/```json|```/g, '').trim());
-    } catch {
-      // Try to extract JSON if wrapped in text
-      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try { intelligence = JSON.parse(jsonMatch[0]); }
-        catch { intelligence = { error: 'Parse failed', raw: analysisText.slice(0, 300) }; }
+      // Strip markdown fences, whitespace, and any text before/after the JSON object
+      const cleaned = analysisText
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+      
+      // Find the outermost JSON object
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        const jsonStr = cleaned.slice(firstBrace, lastBrace + 1);
+        intelligence = JSON.parse(jsonStr);
       } else {
-        intelligence = { error: 'Parse failed', raw: analysisText.slice(0, 300) };
+        intelligence = JSON.parse(cleaned);
       }
+    } catch(e) {
+      intelligence = { error: 'Parse failed: ' + e.message, raw: analysisText.slice(0, 300) };
     }
 
     return res.status(200).json({ success: true, brand, competitors, intelligence });
