@@ -450,29 +450,22 @@
   <div class="eyebrow">Inteli-Ads</div>
   <h1>Ad intelligence<br>for <span id="livePreview">any brand</span></h1>
   <p class="sub">Find a Brand</p>
-
   <div style="max-width:480px;width:100%;display:flex;flex-direction:column;gap:0.65rem;">
-
     <div class="brand-input-wrap">
       <input id="brandInput" type="text" placeholder="Search Brand" autocomplete="off" />
       <button id="generateBtn" onclick="buildDashboard()">Find</button>
     </div>
-
-
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.6rem 1rem;">
       <span style="font-family:var(--mono);font-size:11px;color:var(--text-3);white-space:nowrap;letter-spacing:0.04em;">KEYWORDS</span>
       <input id="keywordInput" type="text" placeholder="(separate with spaces or commas)" autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font);color:var(--text);" />
     </div>
-
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid rgba(255,255,255,0.04);border-radius:10px;padding:0.6rem 1rem;opacity:0.4;" title="Meta Ads Manager connection coming soon">
       <span style="font-family:var(--mono);font-size:11px;color:var(--text-3);white-space:nowrap;letter-spacing:0.04em;">AD ACCOUNT</span>
       <input type="text" placeholder="Meta Ad Account ID (coming soon)" disabled style="flex:1;background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font);color:var(--text-3);cursor:not-allowed;" />
       <span style="font-family:var(--mono);font-size:10px;color:var(--text-3);white-space:nowrap;">SOON</span>
     </div>
-
   </div>
-
-  <div class="hint-row" style="margin-top:1.25rem;">
+    <div class="hint-row" style="margin-top:1.25rem;">
     <span>No data stored</span>
     <span>Auto-detects competitors</span>
     <span>4 scripts per brand</span>
@@ -1137,7 +1130,7 @@ Brand: ${currentBrand}.${analysisContext}`;
       document.getElementById('reviewsContent').style.display = 'block';
 
       // Sources
-      document.getElementById('reviewsSourcesOut').textContent = (r.sourcesFound || []).join(', ');
+      // sources display removed
 
       // Review group renderer
       const renderReviews = (reviews) => (reviews || []).map(q =>
