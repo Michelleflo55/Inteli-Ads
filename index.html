@@ -497,6 +497,7 @@
     <div class="tab" onclick="showTab('competitors', this)">Competitors</div>
     <div class="tab" onclick="showTab('personas', this)">Personas</div>
     <div class="tab" onclick="showTab('hooks', this)">Hooks</div>
+    <div class="tab" onclick="showTab('reviews', this)">Reviews</div>
     <div class="tab" onclick="showTab('generate', this)">AI script builder</div>
   </div>
 
@@ -627,6 +628,74 @@
       <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts using these hooks</button>
     </div>
 
+    <!-- TAB: Reviews -->
+    <div id="tab-reviews" class="tab-panel">
+      <div style="color:var(--text-2);font-size:13px;margin-bottom:1.25rem;line-height:1.7;">
+        Real customer reviews pulled from public sources, grouped by awareness level. Use these quotes directly in scripts.
+      </div>
+
+      <div id="reviewsStatus" style="display:none;margin-bottom:1rem;">
+        <div class="loading"><div class="spinner"></div><span id="reviewsStatusText">Fetching reviews...</span></div>
+      </div>
+
+      <div id="reviewsContent" style="display:none;">
+        <div class="card" style="border-color:var(--border);margin-bottom:0.75rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="card-label">Sources found</div>
+            <div id="reviewsSourcesOut" style="font-size:12px;color:var(--text-3);font-family:var(--mono);"></div>
+          </div>
+        </div>
+
+        <div class="card" style="border-color:var(--purple-border);">
+          <div class="card-label" style="color:var(--purple-text);">Problem Aware. They knew something was wrong, didn't know a fix existed.</div>
+          <div id="reviewsProblemOut"></div>
+          <div id="reviewsProblemHook" style="margin-top:0.75rem;padding:0.6rem 1rem;background:var(--purple-dim);border-radius:var(--radius);font-size:12px;color:var(--purple-text);"></div>
+        </div>
+
+        <div class="card" style="border-color:var(--amber-border);">
+          <div class="card-label" style="color:var(--amber);">Solution Aware. Tried everything. Kept getting burned.</div>
+          <div id="reviewsSolutionOut"></div>
+          <div id="reviewsSolutionHook" style="margin-top:0.75rem;padding:0.6rem 1rem;background:var(--amber-dim);border-radius:var(--radius);font-size:12px;color:var(--amber);"></div>
+        </div>
+
+        <div class="card" style="border-color:var(--border);">
+          <div class="card-label">Brand Aware. Knew the brand, finally tried it.</div>
+          <div id="reviewsBrandOut"></div>
+          <div id="reviewsBrandHook" style="margin-top:0.75rem;padding:0.6rem 1rem;background:var(--surface2);border-radius:var(--radius);font-size:12px;color:var(--text-2);"></div>
+        </div>
+
+        <div class="card" style="border-color:var(--green-border);">
+          <div class="card-label" style="color:var(--green-text);">Most Aware. Real results. Specific experiences.</div>
+          <div id="reviewsMostOut"></div>
+          <div id="reviewsMostHook" style="margin-top:0.75rem;padding:0.6rem 1rem;background:var(--green-dim);border-radius:var(--radius);font-size:12px;color:var(--green-text);"></div>
+        </div>
+
+        <div class="card" style="border-color:var(--amber-border);">
+          <div class="card-label" style="color:var(--amber);">Top quotes to steal for scripts</div>
+          <div id="reviewsTopQuotesOut"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Language customers naturally use</div>
+          <div id="reviewsLanguageOut" class="tag-row"></div>
+        </div>
+
+        <div class="card" style="border-color:var(--red-border);">
+          <div class="card-label" style="color:var(--red-text);">Unexpected insights the brand isn't using in ads yet</div>
+          <div id="reviewsInsightsOut"></div>
+        </div>
+      </div>
+
+      <div id="reviewsEmpty" style="color:var(--text-3);font-size:13px;font-style:italic;">
+        Build dashboard first, then click the button below to fetch reviews.
+      </div>
+
+      <div style="margin-top:1.25rem;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-amber" onclick="fetchReviews()">Fetch reviews for this brand</button>
+        <button class="btn btn-ghost" onclick="goToScriptBuilder()">Build scripts using these reviews</button>
+      </div>
+    </div>
+
     <!-- TAB: AI Script Builder -->
     <div id="tab-generate" class="tab-panel">
       <div class="card">
@@ -692,7 +761,6 @@
     if (!brand) return;
     currentBrand = brand;
     const keywords = document.getElementById('keywordInput') ? document.getElementById('keywordInput').value.trim() : '';
-    const competitors = document.getElementById('competitorInput') ? document.getElementById('competitorInput').value.trim() : '';
 
     document.getElementById('topbarBrand').textContent = brand;
     document.getElementById('landing').style.display = 'none';
@@ -700,49 +768,62 @@
 
     showTab('analysis', document.querySelector('[onclick*="analysis"]'));
 
-    // Clear all panels before fetch
-    const loadingMsg = '<div class="loading"><div class="spinner"></div>Fetching ' + brand + ' ads + Reddit intelligence...</div>';
-    ['valueOut','topicOut','hookOut','freqOut'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = '';
-    });
-    const redditEl = document.getElementById('redditOut');
-    if (redditEl) redditEl.innerHTML = '';
-    document.getElementById('painOut').innerHTML = loadingMsg;
-    ['cntAds','cntPain','cntValue','cntTopic'].forEach(id => {
-      document.getElementById(id).textContent = '...';
-    });
+    const setLoading = (msg) => {
+      document.getElementById('painOut').innerHTML = `<div class="loading"><div class="spinner"></div>${msg}</div>`;
+      ['valueOut','topicOut','hookOut','freqOut','redditOut','compAnglesOut','compComplaintsOut','compKeywordsOut','compGapsOut','hooksNegativeOut','hooksCuriosityOut','hooksPersonaOut','hooksTrendingOut','personasOut'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.innerHTML = '';
+      });
+      ['cntAds','cntPain','cntValue','cntTopic'].forEach(id => document.getElementById(id).textContent = '...');
+    };
 
     try {
-      const res = await fetch('/api/fetch-ads', {
+      // CALL 1: Fast data collection
+      setLoading('Fetching brand and competitor data...');
+      const dataRes = await fetch('/api/fetch-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brand, keywords, competitors })
+        body: JSON.stringify({ brand, keywords })
       });
 
-      const rawText = await res.text();
-      let data;
-      try { data = JSON.parse(rawText); } catch {
-        document.getElementById('painOut').innerHTML = '<span class="empty">Parse error. Try again.</span>';
-        return;
+      const dataRaw = await dataRes.text();
+      let dataResult;
+      try { dataResult = JSON.parse(dataRaw); }
+      catch { document.getElementById('painOut').innerHTML = `<span class="empty">Data fetch error. Try again.</span>`; return; }
+
+      if (!dataResult.success) {
+        document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${dataResult.error}</span>`; return;
       }
 
-      if (!data.success || !data.intelligence) {
-        document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${data.error || 'Unknown'}</span>`;
-        return;
+      const { competitors, rawData } = dataResult;
+
+      // Show detected competitors immediately
+      if (competitors.length) {
+        const dc = document.getElementById('detectedCompCard');
+        if (dc) dc.style.display = 'block';
+        document.getElementById('detectedCompOut').innerHTML = competitors.map(c => `<span class="tag" style="background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);">${c}</span>`).join('');
       }
 
-      const intel = data.intelligence;
+      // CALL 2: Claude analysis
+      setLoading('Analyzing data and generating intelligence...');
+      const analysisRes = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand, keywords, competitors, rawData })
+      });
 
+      const analysisRaw = await analysisRes.text();
+      let analysisResult;
+      try { analysisResult = JSON.parse(analysisRaw); }
+      catch { document.getElementById('painOut').innerHTML = `<span class="empty">Analysis parse error. Try again.</span>`; return; }
+
+      if (!analysisResult.success) {
+        document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${analysisResult.error}</span>`; return;
+      }
+
+      const intel = analysisResult.intelligence;
+
+      // Populate Analysis tab
       document.getElementById('cntAds').textContent = '✓';
-
-      // Show auto-detected competitors
-      const detectedComps = data.detectedCompetitors || intel.detectedCompetitors || [];
-      if (detectedComps.length) {
-        document.getElementById('detectedCompCard').style.display = 'block';
-        document.getElementById('detectedCompOut').innerHTML =
-          detectedComps.map(c => `<span class="tag" style="background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);">${c}</span>`).join('');
-      }
       document.getElementById('cntPain').textContent = (intel.painPoints || []).length;
       document.getElementById('cntValue').textContent = (intel.valueProps || []).length;
       document.getElementById('cntTopic').textContent = (intel.topTopics || []).length;
@@ -750,34 +831,38 @@
       document.getElementById('painOut').innerHTML = (intel.painPoints || []).length
         ? intel.painPoints.map(p => `<span class="tag pain">${p}</span>`).join('')
         : '<span class="empty">None detected.</span>';
-
       document.getElementById('valueOut').innerHTML = (intel.valueProps || []).length
         ? intel.valueProps.map(v => `<span class="tag value">${v}</span>`).join('')
         : '<span class="empty">None detected.</span>';
-
       document.getElementById('topicOut').innerHTML = (intel.topTopics || []).length
         ? intel.topTopics.map(t => `<span class="tag topic">${t}</span>`).join('')
         : '<span class="empty">None detected.</span>';
-
       document.getElementById('freqOut').innerHTML = (intel.topKeywords || []).length
         ? intel.topKeywords.map(k => `<span class="tag topic">${k}</span>`).join('')
         : '<span class="empty">None detected.</span>';
-
       document.getElementById('hookOut').innerHTML = (intel.hookPatterns || []).length
-        ? intel.hookPatterns.map((h, i) => `<div class="hook-block"><div class="hook-num">HOOK ${String(i+1).padStart(2,'0')}</div><div class="hook-text">"${h}"</div></div>`).join('')
+        ? intel.hookPatterns.map((h,i) => `<div class="hook-block"><div class="hook-num">HOOK ${String(i+1).padStart(2,'0')}</div><div class="hook-text">"${h}"</div></div>`).join('')
         : '<span class="empty">None detected.</span>';
+      document.getElementById('redditOut').innerHTML = (intel.redditInsights || []).length
+        ? intel.redditInsights.map(r => `<div class="hook-block" style="border-color:var(--red-text);background:var(--red-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">"${r}"</div></div>`).join('')
+        : '<span class="empty">No Reddit data found.</span>';
 
-      if (intel.topHeadlines && intel.topHeadlines.length) {
-        document.getElementById('hookOut').innerHTML +=
-          '<div style="margin-top:1rem;"><div class="card-label" style="margin-bottom:0.5rem;color:var(--amber);">TOP HEADLINES</div>' +
-          intel.topHeadlines.map(h => `<div class="hook-block"><div class="hook-text">${h}</div></div>`).join('') + '</div>';
+      if (intel.scriptRecommendation) {
+        document.getElementById('freqOut').innerHTML +=
+          `<div style="margin-top:1rem;width:100%;padding:0.75rem 1rem;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--radius);font-size:13px;color:var(--text-2);line-height:1.6;"><span style="font-family:var(--mono);font-size:10px;color:var(--amber);display:block;margin-bottom:4px;">SCRIPT RECOMMENDATION</span>${intel.scriptRecommendation}</div>`;
       }
 
-      // Personas
+      // Populate Competitors tab
+      if (intel.competitorAngles) document.getElementById('compAnglesOut').innerHTML = intel.competitorAngles.map(a => `<div class="hook-block" style="border-color:var(--purple-text);background:var(--purple-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${a}</div></div>`).join('');
+      const adaptations = intel.competitorAdaptations || [];
+      if (adaptations.length) document.getElementById('compComplaintsOut').innerHTML = adaptations.map(c => `<div class="hook-block" style="border-color:var(--green-text);background:var(--green-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${c}</div></div>`).join('');
+      if (intel.competitorKeywords) document.getElementById('compKeywordsOut').innerHTML = intel.competitorKeywords.map(k => `<span class="tag" style="background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);">${k}</span>`).join('');
+      if (intel.competitorGaps) document.getElementById('compGapsOut').innerHTML = intel.competitorGaps.map(g => `<div class="hook-block" style="border-color:var(--green-text);background:var(--green-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${g}</div></div>`).join('');
+
+      // Populate Personas tab
       if (intel.personas && intel.personas.length) {
         const topPersonas = intel.personas.filter(p => p.type === 'proven');
         const whitePersonas = intel.personas.filter(p => p.type === 'whitespace');
-
         const renderPersona = (p, isWhite) => `
           <div class="card" style="border-color:${isWhite ? 'var(--purple-border)' : 'var(--amber-border)'};margin-bottom:0.75rem;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;">
@@ -793,7 +878,6 @@
             <div style="font-size:13px;color:var(--text-2);line-height:1.6;">${p.angle}</div>
             ${p.redditQuote ? `<div style="margin-top:1rem;padding:0.65rem 1rem;background:var(--red-dim);border-left:2px solid var(--red-text);border-radius:0 6px 6px 0;font-size:12px;color:var(--text-2);font-style:italic;line-height:1.6;">"${p.redditQuote}"</div>` : ''}
           </div>`;
-
         document.getElementById('personasOut').innerHTML =
           '<div style="font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:0.1em;margin-bottom:0.75rem;">TOP PROVEN PERSONAS</div>' +
           topPersonas.map(p => renderPersona(p, false)).join('') +
@@ -801,77 +885,37 @@
           whitePersonas.map(p => renderPersona(p, true)).join('');
       }
 
-      // Hooks tab
-      const renderHookList = (hooks) => hooks.length
+      // Populate Hooks tab
+      const renderHookList = (hooks) => (hooks||[]).length
         ? hooks.map(h => `<div class="hook-block" style="margin-bottom:0.5rem;"><div class="hook-text">${h}</div></div>`).join('')
         : '<span class="empty">None generated.</span>';
+      document.getElementById('hooksNegativeOut').innerHTML = renderHookList(intel.hooksNegative);
+      document.getElementById('hooksCuriosityOut').innerHTML = renderHookList(intel.hooksCuriosity);
+      document.getElementById('hooksPersonaOut').innerHTML = renderHookList(intel.hooksPersona);
+      document.getElementById('hooksTrendingOut').innerHTML = renderHookList(intel.hooksTrending);
 
-      if (intel.hooksNegative) document.getElementById('hooksNegativeOut').innerHTML = renderHookList(intel.hooksNegative || []);
-      if (intel.hooksCuriosity) document.getElementById('hooksCuriosityOut').innerHTML = renderHookList(intel.hooksCuriosity || []);
-      if (intel.hooksPersona) document.getElementById('hooksPersonaOut').innerHTML = renderHookList(intel.hooksPersona || []);
-      if (intel.hooksTrending) document.getElementById('hooksTrendingOut').innerHTML = renderHookList(intel.hooksTrending || []);
-
-      if (intel.scriptRecommendation) {
-        document.getElementById('freqOut').innerHTML +=
-          '<div style="margin-top:1rem;width:100%;padding:0.75rem 1rem;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--radius);font-size:13px;color:var(--text-2);line-height:1.6;">' +
-          '<span style="font-family:var(--mono);font-size:10px;color:var(--amber);display:block;margin-bottom:4px;">SCRIPT RECOMMENDATION</span>' +
-          intel.scriptRecommendation + '</div>';
-      }
-
-      // Reddit insights
-      if (intel.redditInsights && intel.redditInsights.length) {
-        document.getElementById('redditOut').innerHTML =
-          intel.redditInsights.map(r => `<div class="hook-block" style="border-color:var(--red-text);background:var(--red-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">"${r}"</div></div>`).join('');
-      } else {
-        document.getElementById('redditOut').innerHTML = '<span class="empty">No Reddit data found for this brand.</span>';
-      }
-
-      // Competitor angles
-      if (intel.competitorAngles && intel.competitorAngles.length) {
-        document.getElementById('compAnglesOut').innerHTML =
-          intel.competitorAngles.map(a => `<div class="hook-block" style="border-color:var(--purple-text);background:var(--purple-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${a}</div></div>`).join('');
-      }
-
-      // Competitor adaptations
-      const adaptations = intel.competitorAdaptations || intel.competitorComplaints || [];
-      if (adaptations.length) {
-        document.getElementById('compComplaintsOut').innerHTML =
-          adaptations.map(c => `<div class="hook-block" style="border-color:var(--green-text);background:var(--green-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${c}</div></div>`).join('');
-      }
-
-      // Competitor keywords
-      if (intel.competitorKeywords && intel.competitorKeywords.length) {
-        document.getElementById('compKeywordsOut').innerHTML =
-          intel.competitorKeywords.map(k => `<span class="tag" style="background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);">${k}</span>`).join('');
-      }
-
-      // Competitor gaps
-      if (intel.competitorGaps && intel.competitorGaps.length) {
-        document.getElementById('compGapsOut').innerHTML =
-          intel.competitorGaps.map(g => `<div class="hook-block" style="border-color:var(--green-text);background:var(--green-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${g}</div></div>`).join('');
-      }
-
+      // Pre-fill AI script builder
       document.getElementById('genPrompt').value = `Brand: ${brand}.
-Keywords/products: ${keywords || 'all products'}.
+Keywords: ${keywords || 'all products'}.
 
-ANALYSIS DATA:
-Pain points (use these exactly): ${(intel.painPoints||[]).join(', ')}.
-Value props (use these exactly): ${(intel.valueProps||[]).join(', ')}.
-Top topics: ${(intel.topTopics||[]).join(', ')}.
-Top keywords: ${(intel.topKeywords||[]).join(', ')}.
-Reddit insights (real customer language): ${(intel.redditInsights||[]).join(' | ')}.
+ANALYSIS:
+Pain points: ${(intel.painPoints||[]).join(', ')}.
+Value props: ${(intel.valueProps||[]).join(', ')}.
+Reddit insights: ${(intel.redditInsights||[]).join(' | ')}.
 
-COMPETITOR INTELLIGENCE:
-Angles competitors are running: ${(intel.competitorAngles||[]).join(' | ')}.
-Complaints about competitors we can win on: ${(intel.competitorComplaints||[]).join(' | ')}.
-Gaps competitors are missing: ${(intel.competitorGaps||[]).join(' | ')}.
+PERSONAS:
+${(intel.personas||[]).map(p => p.type.toUpperCase() + ': ' + (p.identity||p.pain) + ' | ' + (p.description||'') + ' | Hook: ' + p.hook).join('\n')}.
 
-PERSONAS:\n${(intel.personas||[]).map(p => p.type.toUpperCase() + ': ' + (p.identity || p.pain) + ' | ' + p.description + ' | Hook: ' + p.hook).join('\n')}.\n\nPROVEN HOOKS TO CONSIDER:\n${[...(intel.hooksNegative||[]).slice(0,2), ...(intel.hooksCuriosity||[]).slice(0,2), ...(intel.hooksPersona||[]).slice(0,2), ...(intel.hooksTrending||[]).slice(0,2)].join('\n')}.\n\nTASK: Write 5 scripts. First 3 target the proven personas above directly. Script 4 targets the first whitespace persona. Script 5 is Angle 4 broad reach. Each max 150 words. Use exact pain points and value props from analysis. Pull real Reddit language. Include hook, full script, CTA, and why it works.`;
+PROVEN HOOKS:
+${[...(intel.hooksNegative||[]).slice(0,2), ...(intel.hooksCuriosity||[]).slice(0,2), ...(intel.hooksPersona||[]).slice(0,2), ...(intel.hooksTrending||[]).slice(0,2)].join('\n')}.
+
+TASK: Write 5 scripts. Scripts 1-3 target the proven personas. Script 4 targets the first whitespace persona. Script 5 is broad cold traffic Angle 4. Each max 150 words. Use exact pain points and value props. Pull real Reddit language. Use one of the proven hooks above as the opening. Include hook, full script, CTA, and why it works for each.`;
 
     } catch (err) {
       document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${err.message}</span>`;
     }
   }
+
 
   function resetApp() {
     currentBrand = '';
@@ -1084,6 +1128,83 @@ Brand: ${currentBrand}.${analysisContext}`;
     generateScript();
   }
 
+
+  async function fetchReviews() {
+    if (!currentBrand) {
+      alert('Build a brand dashboard first.');
+      return;
+    }
+
+    document.getElementById('reviewsEmpty').style.display = 'none';
+    document.getElementById('reviewsContent').style.display = 'none';
+    document.getElementById('reviewsStatus').style.display = 'block';
+    document.getElementById('reviewsStatusText').textContent = 'Fetching reviews from public sources...';
+
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: currentBrand, keywords: document.getElementById('keywordInput')?.value || '' })
+      });
+
+      const raw = await res.text();
+      let result;
+      try { result = JSON.parse(raw); }
+      catch { document.getElementById('reviewsStatusText').textContent = 'Parse error. Try again.'; return; }
+
+      if (!result.success || !result.reviews) {
+        document.getElementById('reviewsStatusText').textContent = 'Error: ' + (result.error || 'Unknown');
+        return;
+      }
+
+      const r = result.reviews;
+      document.getElementById('reviewsStatus').style.display = 'none';
+      document.getElementById('reviewsContent').style.display = 'block';
+
+      // Sources
+      document.getElementById('reviewsSourcesOut').textContent = (r.sourcesFound || []).join(', ');
+
+      // Review group renderer
+      const renderReviews = (reviews) => (reviews || []).map(q =>
+        `<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-2);line-height:1.7;">"${q}"</div>`
+      ).join('');
+
+      document.getElementById('reviewsProblemOut').innerHTML = renderReviews(r.problemAware?.reviews);
+      document.getElementById('reviewsProblemHook').textContent = '→ Hook angle: ' + (r.problemAware?.hookOpportunity || '');
+
+      document.getElementById('reviewsSolutionOut').innerHTML = renderReviews(r.solutionAware?.reviews);
+      document.getElementById('reviewsSolutionHook').textContent = '→ Hook angle: ' + (r.solutionAware?.hookOpportunity || '');
+
+      document.getElementById('reviewsBrandOut').innerHTML = renderReviews(r.brandAware?.reviews);
+      document.getElementById('reviewsBrandHook').textContent = '→ Hook angle: ' + (r.brandAware?.hookOpportunity || '');
+
+      document.getElementById('reviewsMostOut').innerHTML = renderReviews(r.mostAware?.reviews);
+      document.getElementById('reviewsMostHook').textContent = '→ Hook angle: ' + (r.mostAware?.hookOpportunity || '');
+
+      document.getElementById('reviewsTopQuotesOut').innerHTML = (r.topQuotesForScripting || []).map((q, i) =>
+        `<div class="hook-block" style="margin-bottom:0.5rem;"><div class="hook-num">QUOTE ${String(i+1).padStart(2,'0')}</div><div class="hook-text">"${q}"</div></div>`
+      ).join('');
+
+      document.getElementById('reviewsLanguageOut').innerHTML = (r.recurringLanguage || []).map(w =>
+        `<span class="tag value">${w}</span>`
+      ).join('');
+
+      document.getElementById('reviewsInsightsOut').innerHTML = (r.unexpectedInsights || []).map(insight =>
+        `<div class="hook-block" style="border-color:var(--red-text);background:var(--red-dim);margin-bottom:0.5rem;"><div class="hook-text" style="color:var(--text);">${insight}</div></div>`
+      ).join('');
+
+      // Add top review quotes to genPrompt
+      const topQuotes = (r.topQuotesForScripting || []).slice(0, 4).join(' | ');
+      if (topQuotes && document.getElementById('genPrompt').value) {
+        document.getElementById('genPrompt').value += '\n\nTOP CUSTOMER QUOTES TO USE:\n' + topQuotes;
+      }
+
+    } catch (err) {
+      document.getElementById('reviewsStatus').style.display = 'none';
+      document.getElementById('reviewsEmpty').style.display = 'block';
+      document.getElementById('reviewsEmpty').textContent = 'Error: ' + err.message;
+    }
+  }
 
 </script>
 </body>
