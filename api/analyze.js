@@ -68,7 +68,12 @@ export default async function handler(req, res) {
     '  "hooksCuriosity": ["5 curiosity hooks for this brand. Fill all blanks. NEVER mention competitor names."],',
     '  "hooksPersona": ["5 persona hooks for this brand. Fill all blanks. NEVER mention competitor names."],',
     '  "hooksTrending": ["[Confession] hook", "[POV] hook", "[Reaction] hook", "[Before After] hook", "[List] hook"],',
-    '  "scriptRecommendation": "Single highest-leverage script angle. 3 sentences max."',
+    '  "scriptRecommendation": "Single highest-leverage script angle. 3 sentences max.",
+  "dynamicKeywords": {
+    "pain": ["15-20 exact words and short phrases real customers use when describing problems with products in this category. Raw language. No marketing terms. Specific to this brand and product type."],
+    "value": ["15-20 exact words and short phrases customers use when describing what they love. Things like stayed put, forgot I had it on, actually works. Specific to this category."],
+    "topic": ["15-20 topic words and life context phrases that appear in reviews and discussions for this brand. Occasions, body types, life stages, specific use cases relevant to this product."]
+  }',
     '}'
   ].join('\n');
 
