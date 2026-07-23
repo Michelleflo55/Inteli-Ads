@@ -36,14 +36,11 @@ export default async function handler(req, res) {
         : JSON.parse(cleanCt);
     } catch { competitorList = []; }
 
-    // Step 2: All data fetches in parallel with tight timeout
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-
+    // Step 2: All data fetches in parallel
     const urls = [
-      `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(brand)}&search_type=keyword_unordered&media_type=all`,
-      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand + ' review OR honest OR hate OR love')}&sort=relevance&limit=8&type=link`,
-      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand)}&sort=top&limit=6&type=comment`,
+      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand + ' review OR honest OR hate OR love')}&sort=relevance&limit=10&type=link`,
+      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand)}&sort=top&limit=8&type=comment`,
+      `https://www.reddit.com/search.json?q=${encodeURIComponent(brand + ' ' + (keywords||'') + ' honest review')}&sort=new&limit=6&type=link`,
       ...competitorList.slice(0, 3).map(c =>
         `https://www.reddit.com/search.json?q=${encodeURIComponent(c + ' review OR complaint OR honest')}&sort=relevance&limit=4&type=link`
       )
@@ -51,13 +48,9 @@ export default async function handler(req, res) {
 
     const results = await Promise.allSettled(
       urls.map(url => fetch(url, {
-        signal: controller.signal,
-        headers: url.includes('reddit') 
-          ? { 'User-Agent': 'InteliAds/1.0', 'Accept': 'application/json' }
-          : { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36', 'Accept': 'text/html' }
+        headers: { 'User-Agent': 'InteliAds/1.0 research tool', 'Accept': 'application/json' }
       }))
     );
-    clearTimeout(timeout);
 
     const extractText = async (r) => {
       if (r?.status !== 'fulfilled' || !r.value.ok) return '';
@@ -73,9 +66,9 @@ export default async function handler(req, res) {
       } catch { return ''; }
     };
 
-    const mainMeta = await extractText(results[0]);
-    const mainReddit = await extractReddit(results[1]);
-    const mainComments = await extractReddit(results[2]);
+    const mainReddit = await extractReddit(results[0]);
+    const mainComments = await extractReddit(results[1]);
+    const mainReddit2 = await extractReddit(results[2]);
     
     let compReddit = '';
     for (let i = 0; i < competitorList.slice(0,3).length; i++) {
@@ -83,13 +76,15 @@ export default async function handler(req, res) {
       if (r) compReddit += `\n=== ${competitorList[i]} ===\n${r}`;
     }
 
+    const combinedReddit = [mainReddit, mainReddit2].filter(Boolean).join('\n');
+
     return res.status(200).json({
       success: true,
       competitors: competitorList,
       rawData: {
-        mainMeta: mainMeta.slice(0, 800),
-        mainReddit: mainReddit.slice(0, 1200),
-        mainComments: mainComments.slice(0, 600),
+        mainMeta: '',
+        mainReddit: combinedReddit.slice(0, 2000),
+        mainComments: mainComments.slice(0, 800),
         compReddit: compReddit.slice(0, 1500)
       }
     });
