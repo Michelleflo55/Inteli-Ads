@@ -495,6 +495,8 @@
     <div class="tab active" onclick="showTab('paste', this)">Paste ads</div>
     <div class="tab" onclick="showTab('analysis', this)">Analysis</div>
     <div class="tab" onclick="showTab('competitors', this)">Competitors</div>
+    <div class="tab" onclick="showTab('personas', this)">Personas</div>
+    <div class="tab" onclick="showTab('hooks', this)">Hooks</div>
     <div class="tab" onclick="showTab('generate', this)">AI script builder</div>
   </div>
 
@@ -583,6 +585,46 @@
       </div>
       <hr class="divider">
       <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts using competitor gaps</button>
+    </div>
+
+    <!-- TAB: Personas -->
+    <div id="tab-personas" class="tab-panel">
+      <div style="color:var(--text-2);font-size:13px;margin-bottom:1.25rem;line-height:1.7;">
+        Top 3 personas are built from what Reddit is actively talking about. Bottom 2 are whitespace, underserved audiences with no current creative targeting them.
+      </div>
+      <div id="personasOut"><span class="empty">Build dashboard to generate personas.</span></div>
+      <hr class="divider">
+      <button class="btn btn-amber" onclick="goToScriptBuilder()">Write scripts for these personas</button>
+    </div>
+
+    <!-- TAB: Hooks -->
+    <div id="tab-hooks" class="tab-panel">
+      <div style="color:var(--text-2);font-size:13px;margin-bottom:1.25rem;line-height:1.7;">
+        Proven hook frameworks matched to this brand. Blanks filled in with real language from the analysis. Ranked by how well they fit this brand right now.
+      </div>
+
+      <div class="card" style="border-color:var(--red-border);">
+        <div class="card-label" style="color:var(--red-text);">Negative / skeptic hooks</div>
+        <div id="hooksNegativeOut"><span class="empty">Build dashboard to generate hooks.</span></div>
+      </div>
+
+      <div class="card" style="border-color:var(--amber-border);">
+        <div class="card-label" style="color:var(--amber);">Curiosity / pattern interrupt hooks</div>
+        <div id="hooksCuriosityOut"><span class="empty">Build dashboard to generate hooks.</span></div>
+      </div>
+
+      <div class="card" style="border-color:var(--green-border);">
+        <div class="card-label" style="color:var(--green-text);">Persona / identity hooks</div>
+        <div id="hooksPersonaOut"><span class="empty">Build dashboard to generate hooks.</span></div>
+      </div>
+
+      <div class="card" style="border-color:var(--purple-border);">
+        <div class="card-label" style="color:var(--purple-text);">Trending right now. Cross-platform viral formats</div>
+        <div id="hooksTrendingOut"><span class="empty">Build dashboard to generate hooks.</span></div>
+      </div>
+
+      <hr class="divider">
+      <button class="btn btn-amber" onclick="goToScriptBuilder()">Build scripts using these hooks</button>
     </div>
 
     <!-- TAB: AI Script Builder -->
@@ -731,6 +773,44 @@
           intel.topHeadlines.map(h => `<div class="hook-block"><div class="hook-text">${h}</div></div>`).join('') + '</div>';
       }
 
+      // Personas
+      if (intel.personas && intel.personas.length) {
+        const topPersonas = intel.personas.filter(p => p.type === 'proven');
+        const whitePersonas = intel.personas.filter(p => p.type === 'whitespace');
+
+        const renderPersona = (p, isWhite) => `
+          <div class="card" style="border-color:${isWhite ? 'var(--purple-border)' : 'var(--amber-border)'};margin-bottom:0.75rem;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;">
+              <span style="font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;background:${isWhite ? 'var(--purple-dim)' : 'var(--amber-dim)'};color:${isWhite ? 'var(--purple-text)' : 'var(--amber)'};border:1px solid ${isWhite ? 'var(--purple-border)' : 'var(--amber-border)'};">${isWhite ? 'WHITESPACE' : 'PROVEN'}</span>
+            </div>
+            <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:0.6rem;letter-spacing:-0.01em;">${p.identity || p.pain}</div>
+            <div style="font-size:13px;color:var(--text-2);line-height:1.7;margin-bottom:0.85rem;">${p.description || ''}</div>
+            <div style="font-size:12px;color:var(--text-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.3rem;">Why she buys</div>
+            <div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:0.85rem;">${p.why_she_buys || ''}</div>
+            <div style="font-size:12px;color:var(--text-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.3rem;">Hook</div>
+            <div style="font-size:14px;color:var(--amber);font-weight:500;margin-bottom:0.85rem;line-height:1.5;">"${p.hook}"</div>
+            <div style="font-size:12px;color:var(--text-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.3rem;">Script angle</div>
+            <div style="font-size:13px;color:var(--text-2);line-height:1.6;">${p.angle}</div>
+            ${p.redditQuote ? `<div style="margin-top:1rem;padding:0.65rem 1rem;background:var(--red-dim);border-left:2px solid var(--red-text);border-radius:0 6px 6px 0;font-size:12px;color:var(--text-2);font-style:italic;line-height:1.6;">"${p.redditQuote}"</div>` : ''}
+          </div>`;
+
+        document.getElementById('personasOut').innerHTML =
+          '<div style="font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:0.1em;margin-bottom:0.75rem;">TOP PROVEN PERSONAS</div>' +
+          topPersonas.map(p => renderPersona(p, false)).join('') +
+          '<div style="font-family:var(--mono);font-size:10px;color:var(--purple-text);letter-spacing:0.1em;margin:1.25rem 0 0.75rem;">WHITESPACE PERSONAS</div>' +
+          whitePersonas.map(p => renderPersona(p, true)).join('');
+      }
+
+      // Hooks tab
+      const renderHookList = (hooks) => hooks.length
+        ? hooks.map(h => `<div class="hook-block" style="margin-bottom:0.5rem;"><div class="hook-text">${h}</div></div>`).join('')
+        : '<span class="empty">None generated.</span>';
+
+      if (intel.hooksNegative) document.getElementById('hooksNegativeOut').innerHTML = renderHookList(intel.hooksNegative || []);
+      if (intel.hooksCuriosity) document.getElementById('hooksCuriosityOut').innerHTML = renderHookList(intel.hooksCuriosity || []);
+      if (intel.hooksPersona) document.getElementById('hooksPersonaOut').innerHTML = renderHookList(intel.hooksPersona || []);
+      if (intel.hooksTrending) document.getElementById('hooksTrendingOut').innerHTML = renderHookList(intel.hooksTrending || []);
+
       if (intel.scriptRecommendation) {
         document.getElementById('freqOut').innerHTML +=
           '<div style="margin-top:1rem;width:100%;padding:0.75rem 1rem;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--radius);font-size:13px;color:var(--text-2);line-height:1.6;">' +
@@ -786,7 +866,7 @@ Angles competitors are running: ${(intel.competitorAngles||[]).join(' | ')}.
 Complaints about competitors we can win on: ${(intel.competitorComplaints||[]).join(' | ')}.
 Gaps competitors are missing: ${(intel.competitorGaps||[]).join(' | ')}.
 
-TASK: Write 4 script variations, one per awareness angle (Angle 1 through 4). Each script max 150 words. Use the exact pain points and value props. Pull real language from Reddit insights. Reference competitor gaps where relevant to position this brand as the better choice. Include hook, full script, CTA, and why it works for each angle.`;
+PERSONAS:\n${(intel.personas||[]).map(p => p.type.toUpperCase() + ': ' + (p.identity || p.pain) + ' | ' + p.description + ' | Hook: ' + p.hook).join('\n')}.\n\nPROVEN HOOKS TO CONSIDER:\n${[...(intel.hooksNegative||[]).slice(0,2), ...(intel.hooksCuriosity||[]).slice(0,2), ...(intel.hooksPersona||[]).slice(0,2), ...(intel.hooksTrending||[]).slice(0,2)].join('\n')}.\n\nTASK: Write 5 scripts. First 3 target the proven personas above directly. Script 4 targets the first whitespace persona. Script 5 is Angle 4 broad reach. Each max 150 words. Use exact pain points and value props from analysis. Pull real Reddit language. Include hook, full script, CTA, and why it works.`;
 
     } catch (err) {
       document.getElementById('painOut').innerHTML = `<span class="empty">Error: ${err.message}</span>`;
