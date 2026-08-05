@@ -446,7 +446,18 @@
 
 <!-- Landing -->
 
-<div id="landing">
+<div id="lockscreen" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;background:var(--bg);">
+  <div class="eyebrow">Inteli-Ads</div>
+  <h1 style="font-size:32px;margin-bottom:0.5rem;font-weight:300;">Enter access code</h1>
+  <p class="sub">This tool is for authorized strategists only.</p>
+  <div class="brand-input-wrap" style="max-width:360px;">
+    <input id="accessCodeInput" type="password" placeholder="Access code" autocomplete="off" onkeydown="if(event.key==='Enter')checkCode()" style="flex:1;background:transparent;border:none;outline:none;padding:0.9rem 1.2rem;font-size:15px;font-family:var(--font);color:var(--text);" />
+    <button onclick="checkCode()" style="background:var(--amber);color:#0e0e0f;border:none;padding:0.9rem 1.4rem;font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;">Enter</button>
+  </div>
+  <div id="codeError" style="color:var(--red-text);font-size:12px;font-family:var(--mono);margin-top:0.75rem;display:none;">Incorrect code. Try again.</div>
+</div>
+
+<div id="landing" style="display:none;">
   <div class="eyebrow">Inteli-Ads</div>
   <h1>Ad intelligence<br>for <span id="livePreview">any brand</span></h1>
   <p class="sub">Find a Brand</p>
@@ -1172,6 +1183,17 @@ Brand: ${currentBrand}.${analysisContext}`;
     }
   }
 
+  function checkCode() {
+    const input = document.getElementById('accessCodeInput').value.trim();
+    if (input === '2923') {
+      document.getElementById('lockscreen').style.display = 'none';
+      document.getElementById('landing').style.display = 'flex';
+      document.getElementById('codeError').style.display = 'none';
+    } else {
+      document.getElementById('codeError').style.display = 'block';
+      document.getElementById('accessCodeInput').value = '';
+    }
+  }
 </script>
 </body>
 </html>
