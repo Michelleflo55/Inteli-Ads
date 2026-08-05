@@ -1183,15 +1183,37 @@ Brand: ${currentBrand}.${analysisContext}`;
     }
   }
 
-  function checkCode() {
+  async function checkCode() {
     const input = document.getElementById('accessCodeInput').value.trim();
-    if (input === '2923') {
-      document.getElementById('lockscreen').style.display = 'none';
-      document.getElementById('landing').style.display = 'flex';
-      document.getElementById('codeError').style.display = 'none';
-    } else {
+    if (!input) return;
+
+    const btn = document.querySelector('#lockscreen button');
+    btn.textContent = '...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: input })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        document.getElementById('lockscreen').style.display = 'none';
+        document.getElementById('landing').style.display = 'flex';
+        document.getElementById('codeError').style.display = 'none';
+      } else {
+        document.getElementById('codeError').style.display = 'block';
+        document.getElementById('accessCodeInput').value = '';
+        btn.textContent = 'Enter';
+        btn.disabled = false;
+      }
+    } catch (err) {
+      document.getElementById('codeError').textContent = 'Connection error. Try again.';
       document.getElementById('codeError').style.display = 'block';
-      document.getElementById('accessCodeInput').value = '';
+      btn.textContent = 'Enter';
+      btn.disabled = false;
     }
   }
 </script>
