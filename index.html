@@ -501,6 +501,7 @@
     <div class="tab" onclick="showTab('personas', this)">Personas</div>
     <div class="tab" onclick="showTab('hooks', this)">Hooks</div>
     <div class="tab" onclick="showTab('reviews', this)">Reviews</div>
+    <div class="tab" onclick="showTab('framework', this)">Script framework</div>
     <div class="tab" onclick="showTab('generate', this)">AI script builder</div>
   </div>
 
@@ -673,12 +674,75 @@
       </div>
     </div>
 
+    <!-- TAB: Script Framework -->
+    <div id="tab-framework" class="tab-panel">
+      <div style="color:var(--text-2);font-size:13px;margin-bottom:1.25rem;line-height:1.7;">
+        AIDA expanded framework. Each section auto-filled from the brand analysis. Edit any section then hit Generate to build the full script.
+      </div>
+
+      <div class="template-block">
+        <div class="tblock-label" style="color:var(--red-text);">ATTENTION. Hook.</div>
+        <div class="tblock-timing">Relatable dramatic opener that makes the audience feel called out in a funny way.</div>
+        <textarea class="tblock-fill" id="fw1" placeholder="Build dashboard first to auto-fill..."></textarea>
+      </div>
+
+      <div class="template-block">
+        <div class="tblock-label" style="color:var(--amber);">INTEREST. Why they should care.</div>
+        <div class="tblock-timing">Exaggerate the everyday situation they already live in so they feel deeply seen.</div>
+        <textarea class="tblock-fill" id="fw2" placeholder="Build dashboard first to auto-fill..."></textarea>
+      </div>
+
+      <div class="template-block">
+        <div class="tblock-label" style="color:var(--amber);">PROBLEM. Second hook.</div>
+        <div class="tblock-timing">Paint the picture of what they look like in that moment. Self deprecating and specific.</div>
+        <textarea class="tblock-fill" id="fw3" placeholder="Build dashboard first to auto-fill..."></textarea>
+      </div>
+
+      <div class="template-block">
+        <div class="tblock-label" style="color:var(--red-text);">AGITATE. Why it's hard.</div>
+        <div class="tblock-timing">Stack the layers of the problem. Time, money, effort, emotional toll. Make it build.</div>
+        <textarea class="tblock-fill" id="fw4" placeholder="Build dashboard first to auto-fill..."></textarea>
+      </div>
+
+      <div class="template-block">
+        <div class="tblock-label" style="color:var(--green-text);">SOLUTION. The fix.</div>
+        <div class="tblock-timing">Introduce the product as the obvious relief, not a pitch. Explain what it does simply.</div>
+        <textarea class="tblock-fill" id="fw5" placeholder="Build dashboard first to auto-fill..."></textarea>
+      </div>
+
+      <div class="template-block">
+        <div class="tblock-label" style="color:var(--green-text);">DESIRE. What life looks like after.</div>
+        <div class="tblock-timing">Short, vivid, emotional. Make them want to live there.</div>
+        <textarea class="tblock-fill" id="fw6" placeholder="Build dashboard first to auto-fill..."></textarea>
+      </div>
+
+      <div class="template-block">
+        <div class="tblock-label" style="color:var(--purple-text);">ACTION. What to do next.</div>
+        <div class="tblock-timing">Direct, urgent, no fluff CTA. Tell them exactly what to do and make it feel easy.</div>
+        <textarea class="tblock-fill" id="fw7" placeholder="Build dashboard first to auto-fill..."></textarea>
+      </div>
+
+      <div class="btn-row" style="margin-top:1rem;">
+        <button class="btn btn-amber" onclick="generateFromFramework()">Generate full script from this framework</button>
+        <button class="btn btn-ghost" onclick="clearFramework()">Clear</button>
+      </div>
+      <div id="frameworkOutput"></div>
+    </div>
+
     <!-- TAB: AI Script Builder -->
     <div id="tab-generate" class="tab-panel">
       <div class="card">
         <div class="card-label">AI script builder. Powered by Claude.</div>
-        <div style="color:var(--text-2);font-size:13px;margin-bottom:1rem;line-height:1.7;">
-          Describe what you need. The builder uses your brand context, analysis data, and the system prompt rules automatically.
+        <div style="color:var(--text-2);font-size:13px;margin-bottom:0.75rem;line-height:1.7;">
+          Describe what you need or select a framework below.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0.75rem;">
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="setFrameworkStyle('aida')">AIDA Expanded</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="setFrameworkStyle('pain')">Pain Point Formula</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="setFrameworkStyle('awareness')">4 Awareness Angles</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="setFrameworkStyle('street')">Street Interview</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="setFrameworkStyle('whiteboard')">Whiteboard</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="setFrameworkStyle('ugc')">UGC Direct</button>
         </div>
         <textarea id="genPrompt" style="min-height:100px;" placeholder="e.g. Write a CrossBra UGC script for a woman with bigger breasts using the BBL angle. Medium support, no underwire, breathable fabric. 30 seconds max."></textarea>
         <div class="btn-row">
@@ -799,6 +863,9 @@
 
       // Update keyword lists to be brand-specific
       if (intel.dynamicKeywords) updateDynamicKeywords(intel.dynamicKeywords);
+
+      // Auto-fill the AIDA framework tab
+      autoFillFramework(intel);
       document.getElementById('cntPain').textContent = (intel.painPoints || []).length;
       document.getElementById('cntValue').textContent = (intel.valueProps || []).length;
       document.getElementById('cntTopic').textContent = (intel.topTopics || []).length;
@@ -1105,6 +1172,87 @@ Brand: ${currentBrand}.${analysisContext}`;
     generateScript();
   }
 
+
+  function clearFramework() {
+    ['fw1','fw2','fw3','fw4','fw5','fw6','fw7'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('frameworkOutput').innerHTML = '';
+  }
+
+  function setFrameworkStyle(style) {
+    const styleMap = {
+      'aida': 'Use the AIDA expanded framework: ATTENTION (relatable dramatic hook), INTEREST (exaggerate their situation), PROBLEM (second hook, self deprecating), AGITATE (stack the layers), SOLUTION (product as relief), DESIRE (vivid after picture), ACTION (direct CTA). ',
+      'pain': 'Use the Pain Point Formula: open AS or FROM the problem talking directly to the viewer, make them feel seen, explain HOW it works against them, build tension, pivot to solution as only logical escape, end with low friction CTA. ',
+      'awareness': 'Write 4 script variations, one per awareness angle: Angle 1 Problem Aware, Angle 2 Solution Aware, Angle 3 Brand Aware, Angle 4 Full Awareness broad reach. ',
+      'street': 'Write as a street interview format. Interviewer asks a question that creates a natural reveal of the product. Keep it conversational, unscripted feeling, no ad language. ',
+      'whiteboard': 'Write as a whiteboard concept. Each problem line written and crossed out. Pivot to product as the solve. VO-forward. ',
+      'ugc': 'Write as direct UGC. First person, talking directly to camera, casual and conversational. No corporate language. Feels like a friend telling you about something they found. '
+    };
+    const current = document.getElementById('genPrompt').value;
+    const prefix = styleMap[style] || '';
+    if (!current.startsWith(prefix)) {
+      document.getElementById('genPrompt').value = prefix + current;
+    }
+  }
+
+  async function generateFromFramework() {
+    const sections = {
+      attention: document.getElementById('fw1').value.trim(),
+      interest: document.getElementById('fw2').value.trim(),
+      problem: document.getElementById('fw3').value.trim(),
+      agitate: document.getElementById('fw4').value.trim(),
+      solution: document.getElementById('fw5').value.trim(),
+      desire: document.getElementById('fw6').value.trim(),
+      action: document.getElementById('fw7').value.trim()
+    };
+
+    const filled = Object.values(sections).filter(Boolean);
+    if (!filled.length) {
+      alert('Fill in at least one section first or build a dashboard to auto-fill.');
+      return;
+    }
+
+    const prompt = 'Brand: ' + currentBrand + '\n\nUsing the AIDA expanded framework below, write a complete polished script that flows as natural speech. Max 150 words. No em dashes. No corporate language. Raw, native, direct.\n\n' +
+      'ATTENTION: ' + (sections.attention || '[not filled]') + '\n' +
+      'INTEREST: ' + (sections.interest || '[not filled]') + '\n' +
+      'PROBLEM: ' + (sections.problem || '[not filled]') + '\n' +
+      'AGITATE: ' + (sections.agitate || '[not filled]') + '\n' +
+      'SOLUTION: ' + (sections.solution || '[not filled]') + '\n' +
+      'DESIRE: ' + (sections.desire || '[not filled]') + '\n' +
+      'ACTION: ' + (sections.action || '[not filled]');
+
+    document.getElementById('genPrompt').value = prompt;
+    showTab('generate', document.querySelector('[onclick*="generate"]'));
+    generateScript();
+  }
+
+  function autoFillFramework(intel) {
+    if (!intel || !currentBrand) return;
+
+    const pain = (intel.painPoints || []).slice(0, 2).join('. ');
+    const value = (intel.valueProps || []).slice(0, 2).join('. ');
+    const reddit = (intel.redditInsights || [])[0] || '';
+    const rec = intel.scriptRecommendation || '';
+    const hook = (intel.hooksNegative || intel.hooksCuriosity || [])[0] || '';
+
+    const fw1 = document.getElementById('fw1');
+    const fw2 = document.getElementById('fw2');
+    const fw3 = document.getElementById('fw3');
+    const fw4 = document.getElementById('fw4');
+    const fw5 = document.getElementById('fw5');
+    const fw6 = document.getElementById('fw6');
+    const fw7 = document.getElementById('fw7');
+
+    if (fw1 && hook) fw1.value = hook;
+    if (fw2 && reddit) fw2.value = '"' + reddit + '"';
+    if (fw3 && pain) fw3.value = pain;
+    if (fw4 && intel.painPoints) fw4.value = (intel.painPoints || []).slice(2).join('. ');
+    if (fw5 && value) fw5.value = value;
+    if (fw6 && rec) fw6.value = rec;
+    if (fw7) fw7.value = 'Try ' + currentBrand + ' today.';
+  }
 
   async function fetchReviews() {
     if (!currentBrand) {
