@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  const { brand, keywords: rawKeywords, competitors, rawData } = body;
+  const { brand, keywords: rawKeywords, competitors, rawData, trendData } = body;
   if (!brand || !rawData) return res.status(400).json({ error: 'Brand and rawData required' });
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     'CONSUMER LANGUAGE: ' + (rawData.mainReddit || 'None'),
     'PAIN POINTS DATA: ' + (rawData.mainComments || 'None'),
     'COMPETITOR DATA: ' + (rawData.compReddit || 'None')
+    'TREND DATA: ' + (trendData || 'None')
   ].join('\n');
 
   const negativeFrameworks = 'Do not buy BRAND until you see this | BRAND this is not okay | Is BRAND a scam | I cant believe BRAND did this | What BRAND wont tell you | I regret buying BRAND | Did BRAND lie to me | I am returning my order from BRAND | Exposing BRAND for X | I cant believe what BRAND put in their PRODUCT';
@@ -68,6 +69,13 @@ export default async function handler(req, res) {
     '  "hooksPersona": ["5 persona hooks for this brand. Fill all blanks. NEVER mention competitor names."],',
     '  "hooksTrending": ["[Confession] hook", "[POV] hook", "[Reaction] hook", "[Before After] hook", "[List] hook"],',
     '  "scriptRecommendation": "Single highest-leverage script angle. 3 sentences max.",',
+    '  "trendIntelligence": {',
+    '    "intentSpikes": ["5 things people are actively searching for right now related to this brand and category"],',
+    '    "seasonalWindows": ["3 upcoming seasonal opportunities with specific timing recommendations"],',
+    '    "emergingAngles": ["5 breakout angles or topics growing fast that are not yet saturated in ads"],',
+    '    "competitorSearch": ["How this brand search interest compares to competitors right now. Specific directional data."],',
+    '    "scriptTiming": "One sentence on what to script right now based on trend timing and seasonal intent"',
+    '  }',
     '  "dynamicKeywords": {',
     '    "pain": ["15-20 exact words customers use when describing problems with this product category. Raw. No marketing terms."],',
     '    "value": ["15-20 exact words customers use when describing what they love. Specific to this category."],',
