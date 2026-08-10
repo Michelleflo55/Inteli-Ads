@@ -71,9 +71,27 @@ export default async function handler(req, res) {
       return (next !== -1 ? text.slice(start, next) : text.slice(start)).trim();
     };
 
+    // Fetch trend intelligence in parallel with knowledge
+    let trendData = '';
+    try {
+      const trendRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{ role: 'user', content: 'Search for current Google Trends data, trending searches, and seasonal interest patterns for "' + brand + '" and "' + (keywords || brand + ' category') + '". Also search Answer the Public or similar for top questions people are asking about this brand and category right now in 2026. Return a plain text summary with these exact sections:\n\nINTENT_SPIKES: What people are actively searching for right now related to this brand and category\n\nSEASONAL_WINDOWS: When interest peaks for this product type and upcoming seasonal opportunities\n\nEMERGING_ANGLES: Breakout related queries and new angles growing fast before they are saturated\n\nCOMPETITOR_SEARCH: How this brand search interest compares to competitors right now' }]
+        })
+      });
+      const td = await trendRes.json();
+      trendData = (td.content || []).filter(b => b.type === 'text').map(b => b.text || '').join('') || '';
+    } catch { trendData = ''; }
+
     return res.status(200).json({
       success: true,
       competitors: competitorList,
+      trendData,
       rawData: {
         mainMeta: '',
         mainReddit: getSection(knowledgeText, 'CONSUMER_LANGUAGE').slice(0, 2000),
