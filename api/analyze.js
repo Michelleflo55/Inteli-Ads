@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     'COMPETITORS: ' + (competitors || []).join(', '),
     'CONSUMER LANGUAGE: ' + (rawData.mainReddit || 'None'),
     'PAIN POINTS DATA: ' + (rawData.mainComments || 'None'),
-    'COMPETITOR DATA: ' + (rawData.compReddit || 'None')
+    'COMPETITOR DATA: ' + (rawData.compReddit || 'None'),
     'TREND DATA: ' + (trendData || 'None')
   ].join('\n');
 
