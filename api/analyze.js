@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     '    "emergingAngles": ["5 breakout angles or topics growing fast that are not yet saturated in ads"],',
     '    "competitorSearch": ["How this brand search interest compares to competitors right now. Specific directional data."],',
     '    "scriptTiming": "One sentence on what to script right now based on trend timing and seasonal intent"',
-    '  }',
+    '  },',
     '  "dynamicKeywords": {',
     '    "pain": ["15-20 exact words customers use when describing problems with this product category. Raw. No marketing terms."],',
     '    "value": ["15-20 exact words customers use when describing what they love. Specific to this category."],',
@@ -96,7 +96,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 2500,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
       })
