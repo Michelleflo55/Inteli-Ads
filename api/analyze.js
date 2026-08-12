@@ -96,7 +96,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2500,
+        max_tokens: 4000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
       })
@@ -120,9 +120,20 @@ export default async function handler(req, res) {
         intelligence = JSON.parse(cleaned);
       }
     } catch(e) {
-      intelligence = { error: 'Parse failed: ' + e.message, raw: analysisText.slice(0, 500) };
+      try {
+        const c2 = analysisText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const fb = c2.indexOf('{');
+        const lb = c2.lastIndexOf('}');
+        if (fb !== -1 && lb !== -1 && lb > fb) {
+          intelligence = JSON.parse(c2.slice(fb, lb + 1));
+          intelligence._truncated = true;
+        } else {
+          intelligence = { error: 'Parse failed', raw: analysisText.slice(0, 400) };
+        }
+      } catch {
+        intelligence = { error: 'Parse failed: ' + e.message, raw: analysisText.slice(0, 400) };
+      }
     }
-
     return res.status(200).json({ success: true, brand, competitors, intelligence });
 
   } catch (err) {
